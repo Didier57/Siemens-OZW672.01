@@ -122,9 +122,13 @@ def _backup_payload(
 ) -> dict[str, Any]:
     """Build the content of a datapoint backup file.
 
-    The connection details are deliberately left out: the file only carries what
-    identifies the plant and the selection of the user, so it can be restored
-    on another installation without leaking a password into a plain text file.
+    Only the identifier and the name of every datapoint are kept, because that
+    is all that is needed to add it again: the type, the unit, the range and
+    the enumeration values are read from the OZW672 when the file is restored,
+    so the entities adapt to what the controller announces at that moment. The
+    connection details are deliberately left out too, so the file can be
+    restored on another installation without leaking a password into a plain
+    text file.
     """
     return {
         "format": BACKUP_FORMAT,
@@ -135,7 +139,14 @@ def _backup_payload(
             CONF_GATEWAY_SERIAL: entry_data.get(CONF_GATEWAY_SERIAL),
             CONF_GATEWAY_FIRMWARE: entry_data.get(CONF_GATEWAY_FIRMWARE),
         },
-        "datapoints": datapoints,
+        "datapoints": [
+            {
+                DP_ID: config.get(DP_ID),
+                DP_NAME: config.get(DP_NAME) or config.get(DP_PATH),
+            }
+            for config in datapoints.values()
+            if isinstance(config, dict) and config.get(DP_ID) is not None
+        ],
     }
 
 
@@ -146,8 +157,8 @@ def _backup_text(entry_data: dict[str, Any], datapoints: dict[str, Any]) -> str:
     )
 
 
-def _parse_backup(raw: str) -> dict[str, Any]:
-    """Read a backup file and return its datapoints.
+def _parse_backup(raw: str) -> list[int]:
+    """Read a backup file and return the identifiers it lists.
 
     Raises ``ValueError`` when the content is not a Siemens OZW672 backup or
     holds nothing usable, so the caller can report which error to show.
@@ -160,25 +171,29 @@ def _parse_backup(raw: str) -> dict[str, Any]:
         raise ValueError("invalid_json")
     if payload.get("format") != BACKUP_FORMAT:
         raise ValueError("invalid_format")
-    datapoints = payload.get("datapoints")
-    if not isinstance(datapoints, dict) or not datapoints:
-        raise ValueError("empty_backup")
     if payload.get("version") != BACKUP_VERSION:
         raise ValueError("unsupported_version")
 
-    restored: dict[str, Any] = {}
-    for key, config in datapoints.items():
-        if not isinstance(config, dict):
-            continue
-        datapoint_id = config.get(DP_ID)
+    entries = payload.get("datapoints")
+    if isinstance(entries, dict):
+        entries = list(entries.values())
+    if not isinstance(entries, list):
+        raise ValueError("empty_backup")
+
+    identifiers: list[int] = []
+    for entry in entries:
+        if isinstance(entry, dict):
+            entry = entry.get(DP_ID)
         try:
-            datapoint_id = int(datapoint_id)
+            datapoint_id = int(entry)
         except (TypeError, ValueError):
             continue
-        restored[str(key)] = {**config, DP_ID: datapoint_id}
-    if not restored:
+        if datapoint_id not in identifiers:
+            identifiers.append(datapoint_id)
+
+    if not identifiers:
         raise ValueError("empty_backup")
-    return restored
+    return identifiers
 
 
 def _normalise(user_input: dict[str, Any]) -> dict[str, Any]:
@@ -1273,12 +1288,14 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
     async def async_step_restore(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Replace the datapoints with the content of a backup file.
+        """Replace the datapoints with the identifiers of a backup file.
 
-        Only the selection is restored: every datapoint keeps the identifier it
-        had when it was added, and the identifiers are looked up again from the
-        topics on the next reload, so a backup taken on one installation can be
-        restored on another one.
+        Only the identifiers are read from the file: every one of them is
+        described again by the OZW672, and the description decides whether the
+        datapoint becomes a sensor or an entity that can be changed, together
+        with its unit, its range and its enumeration values. The identifiers
+        are also looked up again from the topics on the next reload, so a
+        backup taken on one installation can be restored on another one.
         """
         errors: dict[str, str] = {}
         datapoints = self._datapoints
@@ -1289,13 +1306,39 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
                 errors["base"] = "invalid_json"
             else:
                 try:
-                    restored = _parse_backup(raw)
+                    identifiers = _parse_backup(raw)
                 except ValueError as err:
                     errors["base"] = str(err)
                 else:
-                    datapoints.clear()
-                    datapoints.update(restored)
-                    return self._save()
+                    if not self._walk:
+                        await self._async_walk_tree()
+                    details = await _async_describe(
+                        self.hass, dict(self.config_entry.data), identifiers
+                    )
+                    restored: dict[str, Any] = {}
+                    unknown = 0
+                    for datapoint_id in identifiers:
+                        description = details.get(datapoint_id) or {}
+                        if not description:
+                            unknown += 1
+                            continue
+                        item = _find_item(self._walk, datapoint_id) or {
+                            DP_ID: datapoint_id
+                        }
+                        datapoint = _build_datapoint(item, description)
+                        restored[datapoint_key(datapoint)] = datapoint
+                    if not restored:
+                        errors["base"] = "unknown_datapoint"
+                    else:
+                        if unknown:
+                            _LOGGER.warning(
+                                "%s datapoint(s) of the backup could not be read "
+                                "on the OZW672 and were skipped",
+                                unknown,
+                            )
+                        datapoints.clear()
+                        datapoints.update(restored)
+                        return self._save()
 
         return self.async_show_form(
             step_id=MENU_RESTORE,

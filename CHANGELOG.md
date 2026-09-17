@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-09-17
+
+### Changed
+
+- **The backup file now only holds the identifier and the name of every
+  datapoint.** Restoring it describes each identifier again on the OZW672, so
+  the type, the unit, the range and the enumeration values are the ones the
+  controller announces at that moment: a datapoint becomes a sensor or an
+  entity that can be changed according to the current answer instead of
+  replaying an old configuration. The file is smaller and free of anything that
+  could go stale.
+- A backup written by 1.3.0 is still accepted (the identifiers are read from
+  its `datapoints` object), and a bare list of identifiers is accepted too.
+- Identifiers that cannot be read when restoring are skipped and reported in
+  the log instead of failing the whole file.
+
 ## [1.3.0] - 2026-09-17
 
 ### Added
@@ -185,6 +201,7 @@ setup to writing values back to the controller.
   `Texte de défaut`) are suffixed `#2`, `#3` … so the generated topic paths are
   unique and reproducible.
 
+[1.3.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.3.1
 [1.3.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.3.0
 [1.2.3]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.3
 [1.2.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.2

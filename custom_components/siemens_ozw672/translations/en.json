@@ -156,14 +156,14 @@
     },
     "backup": {
       "title": "Save the selection to a file",
-      "description": "The {count} datapoints of this installation are listed below as JSON. Copy the whole text and save it in a file, for example `siemens_ozw672_datapoints.json`. Keep it somewhere safe: restoring it later saves you from selecting the datapoints again, for instance after a clean installation of Home Assistant.\n\nThe connection details are not included, so the file is safe to keep next to a backup of your configuration.",
+        "description": "The {count} datapoints of this installation are listed below as JSON, with their identifier and their name. Copy the whole text and save it in a file, for example `siemens_ozw672_datapoints.json`. Keep it somewhere safe: restoring it later saves you from selecting the datapoints again, for instance after a clean installation of Home Assistant.\n\nThe connection details are not included, so the file is safe to keep next to a backup of your configuration.",
       "data": {
         "backup": "Backup"
       }
     },
     "restore": {
       "title": "Restore a selection from a file",
-      "description": "Paste the content of a file saved with 'Save the selection to a file'. The datapoints already configured ({count}) are replaced by the ones of the file.\n\nThe identifiers are written down again from the topics when the entry reloads, so a selection saved on another installation is accepted: the names, the entity types, the units, the ranges and the enumeration options all come from the file.",
+        "description": "Paste the content of a file saved with 'Save the selection to a file'. The datapoints already configured ({count}) are replaced by the ones of the file.\n\nOnly the identifiers and the names are read from the file: every datapoint is described again by the OZW672, so its type, its unit, its range and its enumeration values adapt to what the controller announces right now, and a datapoint becomes a sensor or an entity that can be changed accordingly. The identifiers are also looked up again from the topics on reload, so a selection saved on another installation is accepted. Identifiers that cannot be read are skipped and reported in the log.",
       "data": {
         "backup": "Backup"
       }

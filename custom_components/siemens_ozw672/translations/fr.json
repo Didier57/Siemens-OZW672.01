@@ -156,14 +156,14 @@
       },
       "backup": {
         "title": "Enregistrer la sélection dans un fichier",
-        "description": "Les {count} datapoints de cette installation sont listés ci-dessous au format JSON. Copiez tout le texte et enregistrez-le dans un fichier, par exemple `siemens_ozw672_datapoints.json`. Conservez-le précieusement : le restaurer plus tard vous évite de resélectionner les datapoints, par exemple après une réinstallation complète de Home Assistant.\n\nLes informations de connexion ne sont pas incluses : le fichier peut donc être conservé à côté d'une sauvegarde de votre configuration.",
+        "description": "Les {count} datapoints de cette installation sont listés ci-dessous au format JSON, avec leur identifiant et leur nom. Copiez tout le texte et enregistrez-le dans un fichier, par exemple `siemens_ozw672_datapoints.json`. Conservez-le précieusement : le restaurer plus tard vous évite de resélectionner les datapoints, par exemple après une réinstallation complète de Home Assistant.\n\nLes informations de connexion ne sont pas incluses : le fichier peut donc être conservé à côté d'une sauvegarde de votre configuration.",
         "data": {
           "backup": "Sauvegarde"
         }
       },
       "restore": {
         "title": "Restaurer une sélection depuis un fichier",
-        "description": "Collez le contenu d'un fichier enregistré avec « Enregistrer la sélection dans un fichier ». Les datapoints déjà configurés ({count}) sont remplacés par ceux du fichier.\n\nLes identifiants sont réécrits à partir des topics au rechargement de l'entrée : une sélection enregistrée sur une autre installation est donc acceptée, les noms, types d'entité, unités, plages et options d'énumération venant tous du fichier.",
+        "description": "Collez le contenu d'un fichier enregistré avec « Enregistrer la sélection dans un fichier ». Les datapoints déjà configurés ({count}) sont remplacés par ceux du fichier.\n\nSeuls les identifiants et les noms sont lus dans le fichier : chaque datapoint est décrit à nouveau par l'OZW672, donc son type, son unité, sa plage et ses valeurs d'énumération s'adaptent à ce que le régulateur annonce à cet instant, et le datapoint devient un capteur ou une entité modifiable en conséquence. Les identifiants sont également réécrits à partir des topics au rechargement : une sélection enregistrée sur une autre installation est donc acceptée. Les identifiants illisibles sont ignorés et signalés dans le journal.",
         "data": {
           "backup": "Sauvegarde"
         }
