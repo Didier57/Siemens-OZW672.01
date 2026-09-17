@@ -293,6 +293,12 @@ def _merge_device_fields(
     the user and is kept. A value the device stops reporting (an enumeration
     option list or a range that disappears from the description) is kept too,
     because replacing it with ``None`` would make the entity unusable.
+
+    A datapoint stored before the snapshot existed has no ``DP_DEVICE`` at all:
+    nothing is known about its fields, so they are all adopted from the device
+    instead of being mistaken for user edits. Without that a datapoint would
+    keep the entity kind it was created with forever, and a reload would never
+    turn a sensor into a number or a select.
     """
     previous = config.get(DP_DEVICE)
     previous = previous if isinstance(previous, dict) else {}
@@ -304,11 +310,14 @@ def _merge_device_fields(
         value = fresh.get(field)
         if field != DP_NAME and value is None:
             continue
-        if config.get(field) != previous.get(field):
+        if field in previous and config.get(field) != previous.get(field):
             continue
         if config.get(field) != value:
             changed.append(field)
         merged[field] = value
+
+    if not changed:
+        return config, changed
 
     merged[DP_DEVICE] = fresh
     return merged, changed
@@ -458,19 +467,19 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             fresh = describe_datapoint(datapoint.write_access, details)
             merged, changed = _merge_device_fields(config, fresh)
+            if not changed:
+                continue
             updated[datapoint.key] = merged
-            if changed:
-                changes.append(f"{datapoint.key} ({', '.join(sorted(changed))})")
+            changes.append(f"{datapoint.key} ({', '.join(sorted(changed))})")
 
         if not updated:
             return
 
-        if changes:
-            _LOGGER.info(
-                "The OZW672 description changed for %s datapoint(s): %s",
-                len(changes),
-                "; ".join(changes),
-            )
+        _LOGGER.info(
+            "The OZW672 description changed for %s datapoint(s): %s",
+            len(changes),
+            "; ".join(changes),
+        )
 
         self.datapoints = [
             _apply_config(datapoint, updated) for datapoint in self.datapoints

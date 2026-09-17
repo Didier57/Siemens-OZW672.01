@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-09-17
+
+### Fixed
+
+- **Reloading the integration now updates the kind of every entity.** A
+  datapoint stores what the OZW672 announced when it was added, so a field the
+  user edited can be told apart from a field the device changed. The comparison
+  assumed that snapshot always existed, but datapoints created before it was
+  introduced have none: every stored field then looked like a user edit and was
+  skipped, so the entity kind, the unit and the range read when the datapoint
+  was first added were frozen for good. A reload could therefore never turn a
+  sensor into a number or a select, and the range of a number never followed
+  the controller. A field absent from the snapshot is now adopted from the
+  device, a field the snapshot knows and the user changed is still preserved,
+  and the entry is only written back when something actually changed.
+
 ## [1.2.2] - 2026-09-17
 
 ### Fixed
@@ -152,6 +168,7 @@ setup to writing values back to the controller.
   `Texte de défaut`) are suffixed `#2`, `#3` … so the generated topic paths are
   unique and reproducible.
 
+[1.2.3]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.3
 [1.2.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.2
 [1.2.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.1
 [1.2.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.0
