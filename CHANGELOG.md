@@ -4,173 +4,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.1.1] - 2026-09-17
-
-### Fixed
-
-- Browse the topics one after the other without the flow being dropped by Home
-  Assistant. The menu offering "Next topic", "Previous topic" and "Finish" was
-  returned with a step id that had no matching step method, which made Home
-  Assistant invalidate the flow while the topic was displayed and report
-  "Invalid flow specified" on submit. The menu is now returned by a proper
-  `topic_menu` step in both the setup and the options flow.
-
-## [2.1.0] - 2026-09-17
-
-### Changed
-
-- **Datapoint selection is now a guided walk through the topics.** Instead of
-  choosing a topic in a dropdown and being sent back to a menu after each pick,
-  the plant is browsed topic after topic: each screen lists the datapoints of
-  one topic with a `Topic index/total` caption, `Next topic` moves on,
-  `Previous topic` goes back and `Finish` (or `Save` in the options) stores the
-  selection at any time.
-- Datapoints that are already configured are pre-ticked when their topic is
-  shown, so revisiting a topic no longer risks losing the previous choice, and
-  unticking a datapoint removes it as expected.
-- In the options, the datapoint changes are accumulated in a working copy and
-  written when the user saves, so a wrong click no longer ends the flow and
-  forces starting over.
-
-## [2.0.0] - 2026-09-17
-
-### Added
-
-- **Datapoints are now identified by their topic path** instead of their numeric
-  id. The OZW672 generates the datapoint identifiers for the plant it is wired
-  to, so they differ between installations and can change on the same
-  installation when the server parameters are refreshed. Every datapoint selected
-  by the user is stored with its topic, and the numeric id is only a cached
-  pointer.
-- **Identifiers are re-resolved on every setup**: at each Home Assistant start,
-  restart, reload and options change, the integration walks the menu tree of the
-  plant, compares the topics with the stored ones and updates the ids. A changed
-  id is logged, a topic that disappeared is reported so it can be removed.
-- **Free datapoint selection classified by topic**, both in the setup flow and in
-  the options: choose a topic of the plant, tick the datapoints it contains, and
-  the entity type, the unit, the device class and the state class are guessed
-  from the device answer.
-- **Edit datapoint** option to adjust the name, entity type, value type,
-  enumeration options, unit, device class, state class and min/max/step.
-- `OZW672Client.async_walk_datapoints()` (breadth-first menu tree walk, optional
-  topic filter) and `OZW672Client.async_read_datapoint_details()`.
-- `guess_device_class()` / `guess_state_class()` unit helpers, and support for
-  the `RadioButton` and `TimeOfDay` datapoint types.
-
-### Changed
-
-- **The built-in datapoint catalog has been removed.** A shipped list of ids can
-  not match every installation, which is exactly what made entities stay
-  `unknown` on other plants. Datapoints are now declared per entry.
-- Sibling nodes sharing a title (the controller has a few, for example
-  `Texte de dÃ©faut`) are suffixed `#2`, `#3` â€¦ at tree walking time so the
-  generated topic paths are unique and reproducible.
-- Entity names are disambiguated with the parent topic when two selected
-  datapoints of the same plant share a name, and the unique id is now based on
-  the topic, so entity history survives an id change by the OZW672.
-- Configuration is a single flow: connection, plant device, then datapoint
-  selection (with an option to finish without any datapoint and add them later).
-- Reading a datapoint no longer raises on an unexpected payload; the device error
-  message is surfaced in the log instead of silently returning an empty
-  `Data` object.
-
-### Removed
-
-- The built-in catalog and the `Enable / disable built-in datapoints` option.
-- `OPERATING_MODES` and the hard-coded enumeration lists.
-
-### Migration
-
-- Config entries created with 1.x are migrated to version 2: custom datapoints
-  declared with 1.x are kept as `id:<n>` entries, and the datapoints of the old
-  built-in catalog are removed. Re-select them by topic in
-  **Configure â†’ Add datapoints**.
-
-## [1.1.0] - 2026-09-17
-
-### Added
-
-- Device selection during setup. The OZW672 reports the controllers it is wired
-  to (the menutree root node), and the integration now asks which one to use
-  instead of relying on a hard-coded catalog. The selected device names the
-  Home Assistant device, together with the gateway serial number and firmware
-  version read from the OZW672 itself.
-- `OZW672Client.async_list_devices()` and `OZW672Client.async_get_device_info()`,
-  plus a session helper that re-authenticates once when a session expires.
-- `OZW672Error` is exported for callers that want to catch any client error.
-
-### Changed
-
-- The built-in catalog now contains the datapoint identifiers of a real
-  installation (OZW672.01 + RVS21.831F/127 heat pump controller): outside, room,
-  flow, heat pump flow/return and DHW temperatures, active setpoints, hydraulic
-  pressure, compressor modulation, thermal energy, operating hours, and the
-  state datapoints (heat pump, compressor, heating circuit, DHW, cooling
-  circuit, fault and maintenance). The previous identifiers came from a
-  different plant and could not be read.
-- Datapoint values are stripped of the padding added by the controller, and the
-  dash patterns used for datapoints that are not wired (`----`, `---`, `-`) are
-  reported as unknown instead of being shown as a value.
-- `select` entities accept both the numeric enumeration code and the label
-  reported by some firmwares.
-- The device information (name, model, serial number, firmware) is built once
-  and shared by every entity of a config entry.
-
-## [1.0.2] - 2026-09-17
-
-### Added
-
-- New options step **Enable / disable built-in datapoints**. The built-in
-  catalog matches the reference installation only; on a different plant the
-  datapoints that do not exist have to be disabled and replaced by custom ones.
-- A datapoint of the built-in catalog that is disabled can be re-declared as a
-  custom datapoint.
-
-### Fixed
-
-- Device side errors were swallowed. A failed read answers with
-  `{"Data": {}, "Result": {"Success": "false", "Error": {...}}}`, which was
-  turned into a `None` value, so every entity silently showed `unknown`. The
-  device message (for example `read failed (Nr 6)`) is now raised and logged.
-- A datapoint that cannot be read is logged once at warning level instead of
-  only at debug level, and a completely unreadable catalog is reported as an
-  error without preventing the config entry from loading, so the options flow
-  stays reachable.
-
-## [1.0.1] - 2026-09-17
-
-### Fixed
-
-- Connection to the device always failed with "Failed to connect" when a port
-  was entered. Home Assistant number selectors always return a float, so the
-  port `80` became `80.0` and produced the invalid URL `http://host:80.0`.
-  The port is now coerced to an integer.
-- The real cause of a connection, authentication or API failure is now written
-  to the Home Assistant log instead of being silently mapped to a form error.
-
 ## [1.0.0] - 2026-09-17
 
+First release: the integration is stable and covers the whole workflow, from
+setup to writing values back to the controller.
+
 ### Added
 
-- Initial release of the Siemens OZW672 custom integration.
-- Async API client for the OZW672 web API (`login`, `read_datapoint`, `write_datapoint`, `logout`).
-- `DataUpdateCoordinator` based polling with automatic session renewal.
-- UI configuration flow (host, port, credentials, HTTPS, SSL verification).
-- Re-authentication flow when credentials become invalid.
-- Options flow: scan interval, add and remove custom datapoints.
-- Sensor entities: boiler state, burner state, boiler/return/room/outside/DHW
-  temperatures, burner modulation and fault message.
-- Number entities: comfort setpoint, reduced setpoint, heating curve slope.
-- Select entity: operating mode (Automatic / Reduced / Comfort).
-- Connectivity binary sensor.
-- `siemens_ozw672.write_datapoint` service for arbitrary datapoint writes.
-- HACS and hassfest validation workflows.
-- English and French translations.
+- **Datapoints identified by their topic.** The OZW672 does not ship a fixed
+  datapoint numbering: it generates the identifiers for the plant it is wired
+  to, and they can change when the server parameters are refreshed. Every
+  datapoint is therefore stored with its topic path (for example
+  `Diagnostic consommateurs/Pompe à chaleur/Modulation compresseur`) and the
+  numeric identifier is only a cached pointer. The identifiers are re-resolved
+  against the topics on every setup — Home Assistant start, restart, reload and
+  options change — and a changed identifier is logged.
+- **Guided datapoint selection by topic**, both during setup and from the
+  options: the plant is browsed topic after topic, with *Next topic*,
+  *Previous topic* (your ticks are restored) and *Finish*. Already configured
+  datapoints are pre-ticked. The entity type, unit, device class and state
+  class are guessed from the device answer.
+- Plant device selection: the OZW672 lists the controllers it is wired to.
+- Entities: sensors for the read-only datapoints (temperatures, pressure,
+  modulation, energy, operating hours, states, messages), `number` entities for
+  writable numeric datapoints, `select` entities for enumerations with an
+  option list, and a *Connectivity* binary sensor.
+- Options: polling settings (10 – 3600 s, default 60 s), add datapoints, remove
+  datapoints, and edit a datapoint (name, entity type, value type, enumeration
+  options, unit, device class, state class, min/max/step).
+- `siemens_ozw672.write_datapoint` service to write any datapoint.
+- Automatic session renewal, re-authentication support, and English/French
+  translations.
+- HACS and hassfest validation workflows, plus a workflow that prunes the older
+  GitHub Actions runs.
 
-[2.1.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v2.1.1
-[2.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v2.1.0
-[2.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v2.0.0
-[1.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.1.0
-[1.0.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.2
-[1.0.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.1
+### Notes
+
+- Datapoints that are not wired on the plant (`----`, `---`) are reported as
+  unknown instead of being shown as a value.
+- Siblings sharing a title (the controller has a few, for example
+  `Texte de défaut`) are suffixed `#2`, `#3` … so the generated topic paths are
+  unique and reproducible.
+
 [1.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.0

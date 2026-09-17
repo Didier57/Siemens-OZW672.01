@@ -1,0 +1,27 @@
+name: Prune runs
+
+on:
+  schedule:
+    - cron: "43 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  prune:
+    name: Keep the 8 most recent runs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the older runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          KEEP: "8"
+        run: |
+          gh run list --limit 200 --json databaseId --jq '.[].databaseId' |
+            tail -n +$((KEEP + 1)) |
+            while read -r run_id; do
+              gh run delete "$run_id" || true
+            done
