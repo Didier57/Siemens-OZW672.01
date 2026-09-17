@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-09-17
+
+### Fixed
+
+- **The integration could not load any more** (`cannot import name
+  'describe_datapoint' from ...coordinator`). The function was renamed when the
+  datapoint metadata was shared between the setup flow and the coordinator, but
+  only its call sites were updated: the definition kept the private name, so
+  importing the config flow failed and the config entry could not be set up.
+- A datapoint whose identifier moved in the menu tree raised
+  `FrozenInstanceError` on the next reload: `Datapoint` is a frozen dataclass, so
+  the new identifier is now applied by rebuilding the datapoint instead of
+  assigning to its field.
+
+### Added
+
+- A **Checks** workflow runs on every push: `compileall`, `ruff check`,
+  `ruff format --check` and a check that every import between the modules of the
+  integration resolves. Hassfest and the HACS validation do not load the Python
+  modules, which is why the import error could be released.
+
 ## [1.2.0] - 2026-09-17
 
 ### Added
@@ -104,6 +125,7 @@ setup to writing values back to the controller.
   `Texte de défaut`) are suffixed `#2`, `#3` … so the generated topic paths are
   unique and reproducible.
 
+[1.2.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.1
 [1.2.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.0
 [1.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.0

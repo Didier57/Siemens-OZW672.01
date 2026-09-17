@@ -1,0 +1,88 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint and imports
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "actions/setup-python@v5"
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: python -m pip install --upgrade ruff
+      - name: Compile the integration
+        run: python -m compileall -q custom_components
+      - name: Check the code with ruff
+        run: python -m ruff check .
+      - name: Check the formatting with ruff
+        run: python -m ruff format --check .
+      - name: Check the imports between the modules
+        run: |
+          python - <<'PY'
+          import ast
+          import os
+          import sys
+
+          directory = "custom_components/siemens_ozw672"
+          modules = {}
+          for name in os.listdir(directory):
+              if name.endswith(".py"):
+                  path = os.path.join(directory, name)
+                  modules[name[:-3]] = ast.parse(
+                      open(path, encoding="utf-8").read(), path
+                  )
+
+          defined = {}
+          for name, tree in modules.items():
+              names = set()
+              for node in ast.walk(tree):
+                  if isinstance(
+                      node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                  ):
+                      names.add(node.name)
+                  elif isinstance(node, ast.Assign):
+                      names.update(
+                          t.id for t in node.targets if isinstance(t, ast.Name)
+                      )
+                  elif isinstance(node, ast.AnnAssign) and isinstance(
+                      node.target, ast.Name
+                  ):
+                      names.add(node.target.id)
+                  elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                      names.update(
+                          alias.asname or alias.name.split(".")[0]
+                          for alias in node.names
+                      )
+              defined[name] = names
+
+          errors = []
+          for name, tree in modules.items():
+              for node in ast.walk(tree):
+                  if not isinstance(node, ast.ImportFrom) or node.level != 1:
+                      continue
+                  if not node.module or node.module not in modules:
+                      errors.append(
+                          f"{name}.py:{node.lineno} imports from unknown module "
+                          f"{node.module!r}"
+                      )
+                      continue
+                  for alias in node.names:
+                      if alias.name not in defined[node.module]:
+                          errors.append(
+                              f"{name}.py:{node.lineno} imports {alias.name!r} "
+                              f"from {node.module}.py, which does not define it"
+                          )
+
+          if errors:
+              sys.exit("\n".join(errors))
+          print("all cross-module imports resolve")
+          PY

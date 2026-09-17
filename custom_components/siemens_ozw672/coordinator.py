@@ -212,8 +212,13 @@ def _generated_datapoints(
     return generated
 
 
-def _describe_datapoint(write_access: bool, details: dict[str, Any]) -> dict[str, Any]:
-    """Return the datapoint fields implied by a device description."""
+def describe_datapoint(write_access: bool, details: dict[str, Any]) -> dict[str, Any]:
+    """Return the datapoint fields implied by a device description.
+
+    Shared by the config flow, which builds a datapoint from a description it
+    just read, and by the coordinator, which re-checks the description of the
+    configured datapoints on every setup.
+    """
     value_type = str(details.get("type") or TYPE_NUMERIC)
     unit = details.get("unit") or None
     options = {str(key): label for key, label in (details.get("options") or {}).items()}
@@ -352,6 +357,7 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         paths = [datapoint.path for datapoint in self.datapoints if datapoint.path]
         if paths and self.device_id is not None:
             resolved = await async_resolve_ids(self.client, int(self.device_id), paths)
+            moved: dict[int, int] = {}
             for datapoint in self.datapoints:
                 current_id = resolved.get(datapoint.path) if datapoint.path else None
                 if current_id is None:
@@ -372,7 +378,15 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
                         datapoint.id,
                         current_id,
                     )
-                    datapoint.id = int(current_id)
+                    moved[datapoint.id] = int(current_id)
+
+            if moved:
+                self.datapoints = [
+                    replace(datapoint, id=moved[datapoint.id])
+                    if datapoint.id in moved
+                    else datapoint
+                    for datapoint in self.datapoints
+                ]
 
         await self._async_refresh_descriptions()
 
@@ -407,7 +421,7 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
                 continue
 
-            fresh = _describe_datapoint(datapoint.write_access, details)
+            fresh = describe_datapoint(datapoint.write_access, details)
             merged, changed = _merge_device_fields(config, fresh)
             updated[datapoint.key] = merged
             if changed:
