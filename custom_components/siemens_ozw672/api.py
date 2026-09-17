@@ -70,7 +70,11 @@ class OZW672Client:
         self._lock = asyncio.Lock()
 
         scheme = "https" if use_https else "http"
-        authority = host if port is None else f"{host}:{port}"
+        authority = host
+        if port:
+            # ``port`` may be a float coming from a Home Assistant number
+            # selector (``80.0``) and would otherwise produce an invalid URL.
+            authority = f"{host}:{int(float(port))}"
         self.base_url = f"{scheme}://{authority}"
 
     @property

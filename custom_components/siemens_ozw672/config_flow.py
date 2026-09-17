@@ -77,8 +77,11 @@ def _normalise(user_input: dict[str, Any]) -> dict[str, Any]:
 
     data[CONF_HOST] = host.strip("/").split("/")[0]
     data[CONF_USE_HTTPS] = use_https
-    if not data.get(CONF_PORT):
+    port = data.get(CONF_PORT)
+    if port in (None, ""):
         data.pop(CONF_PORT, None)
+    else:
+        data[CONF_PORT] = int(float(port))
     return data
 
 
@@ -229,11 +232,14 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
             data = _normalise(user_input)
             try:
                 await _async_validate(self.hass, data)
-            except OZW672AuthError:
+            except OZW672AuthError as err:
+                _LOGGER.warning("OZW672 authentication failed: %s", err)
                 errors["base"] = "invalid_auth"
-            except OZW672ConnectionError:
+            except OZW672ConnectionError as err:
+                _LOGGER.error("Cannot reach the OZW672: %s", err)
                 errors["base"] = "cannot_connect"
-            except OZW672ApiError:
+            except OZW672ApiError as err:
+                _LOGGER.error("Unexpected OZW672 response: %s", err)
                 errors["base"] = "unknown"
             except Exception:
                 _LOGGER.exception("Unexpected error while validating the OZW672")
@@ -273,11 +279,14 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
             }
             try:
                 await _async_validate(self.hass, data)
-            except OZW672AuthError:
+            except OZW672AuthError as err:
+                _LOGGER.warning("OZW672 authentication failed: %s", err)
                 errors["base"] = "invalid_auth"
-            except OZW672ConnectionError:
+            except OZW672ConnectionError as err:
+                _LOGGER.error("Cannot reach the OZW672: %s", err)
                 errors["base"] = "cannot_connect"
-            except OZW672ApiError:
+            except OZW672ApiError as err:
+                _LOGGER.error("Unexpected OZW672 response: %s", err)
                 errors["base"] = "unknown"
             else:
                 self.hass.config_entries.async_update_entry(entry, data=data)
