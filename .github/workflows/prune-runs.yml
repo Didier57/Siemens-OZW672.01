@@ -1,6 +1,7 @@
 name: Prune runs
 
 on:
+  push:
   schedule:
     - cron: "43 4 * * *"
   workflow_dispatch:
@@ -8,6 +9,10 @@ on:
 permissions:
   actions: write
   contents: read
+
+concurrency:
+  group: prune-runs
+  cancel-in-progress: false
 
 jobs:
   prune:
