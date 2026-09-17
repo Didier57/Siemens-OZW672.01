@@ -58,6 +58,7 @@ from .const import (
     DP_OPTIONS,
     DP_PATH,
     DP_PLATFORM,
+    DP_SEGMENTS,
     DP_STATE_CLASS,
     DP_STEP,
     DP_SUBKEY,
@@ -97,7 +98,15 @@ ROOT_TOPIC_LABEL = "(root)"
 
 
 def datapoint_key(config: dict[str, Any]) -> str:
-    """Return the stable storage key of a datapoint configuration."""
+    """Return the stable storage key of a datapoint configuration.
+
+    The key is the chain of topic titles joined with ``/``. It is never split
+    again: the segments are kept as a list in ``segments``, so a title that
+    contains a slash cannot corrupt the identity of the datapoint.
+    """
+    segments = config.get(DP_SEGMENTS)
+    if isinstance(segments, (list, tuple)) and segments:
+        return "/".join(str(segment) for segment in segments)
     return str(config.get(DP_PATH) or f"id:{config.get(DP_ID)}")
 
 
@@ -234,16 +243,27 @@ def _find_item(walk: list[dict[str, Any]], datapoint_id: int) -> dict[str, Any] 
     return None
 
 
-def _topic_of(path: str) -> str:
-    """Return the topic a datapoint path belongs to."""
-    return path.rsplit("/", 1)[0] if "/" in path else ROOT_TOPIC_LABEL
+def _segments_of(item: dict[str, Any]) -> list[str]:
+    """Return the path segments of a menu tree entry.
+
+    ``segments`` is the identity of a datapoint; ``path`` is only the same
+    chain joined with ``/`` and is therefore ambiguous when a title contains a
+    slash. Entries without segments fall back to the joined path.
+    """
+    segments = item.get(DP_SEGMENTS)
+    if isinstance(segments, (list, tuple)) and segments:
+        return [str(segment) for segment in segments]
+    path = str(item.get(DP_PATH) or "")
+    return [part for part in path.split("/") if part]
 
 
 def _group_topics(walk: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     """Group the enumerated datapoints by their topic."""
     topics: dict[str, list[dict[str, Any]]] = {}
     for item in walk:
-        topics.setdefault(_topic_of(str(item.get(DP_PATH) or "")), []).append(item)
+        segments = _segments_of(item)
+        topic = "/".join(segments[:-1]) if len(segments) > 1 else ROOT_TOPIC_LABEL
+        topics.setdefault(topic, []).append(item)
     return topics
 
 
@@ -251,7 +271,7 @@ def _datapoint_selector(items: list[dict[str, Any]]) -> SelectSelector:
     """Build a multi-select listing the datapoints of one topic."""
     options = [
         SelectOptionDict(
-            value=str(item.get(DP_PATH)),
+            value=datapoint_key(item),
             label=f"{item.get(DP_NAME)}  [{item.get(DP_ID)}]",
         )
         for item in items
@@ -282,10 +302,8 @@ def _device_snapshot(config: dict[str, Any]) -> dict[str, Any]:
 def _selected_paths(
     items: list[dict[str, Any]], datapoints: dict[str, Any]
 ) -> list[str]:
-    """Return the paths of a topic that are already configured."""
-    return [
-        str(item.get(DP_PATH)) for item in items if datapoint_key(item) in datapoints
-    ]
+    """Return the keys of a topic that are already configured."""
+    return [datapoint_key(item) for item in items if datapoint_key(item) in datapoints]
 
 
 async def _async_apply_topic(
@@ -299,17 +317,19 @@ async def _async_apply_topic(
 
     Datapoints that are already configured keep their settings; newly ticked
     ones are described by the device to guess their type and unit, and the
-    ones that were unticked are removed.
+    ones that were unticked are removed. The selector works on the datapoint
+    key, which is the chain of titles joined with ``/`` but never split again,
+    so a title containing a slash is harmless.
     """
     missing = [
         int(item[DP_ID])
         for item in items
-        if str(item.get(DP_PATH)) in chosen and datapoint_key(item) not in datapoints
+        if datapoint_key(item) in chosen and datapoint_key(item) not in datapoints
     ]
     details = await _async_describe(hass, data, missing)
     for item in items:
         key = datapoint_key(item)
-        if str(item.get(DP_PATH)) in chosen:
+        if key in chosen:
             if key not in datapoints:
                 datapoints[key] = _build_datapoint(
                     item, details.get(int(item[DP_ID]), {})
@@ -341,6 +361,7 @@ def _build_datapoint(item: dict[str, Any], details: dict[str, Any]) -> dict[str,
     return {
         DP_ID: datapoint_id,
         DP_PATH: item.get(DP_PATH),
+        DP_SEGMENTS: _segments_of(item) or None,
         DP_ADDRESS: item.get(DP_ADDRESS),
         DP_SUBKEY: item.get(DP_SUBKEY),
         DP_WRITE_ACCESS: write_access,

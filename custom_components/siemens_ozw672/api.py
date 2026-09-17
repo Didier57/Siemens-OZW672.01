@@ -33,6 +33,7 @@ from .const import (
     DP_ID,
     DP_NAME,
     DP_PATH,
+    DP_SEGMENTS,
     DP_SUBKEY,
     DP_WRITE_ACCESS,
     INVALID_TOKENS,
@@ -202,16 +203,36 @@ def _item_title(item: dict[str, Any]) -> str:
     return ""
 
 
-def _unique_title(item: dict[str, Any], counters: dict[str, int]) -> str:
-    """Return a title that is unique among the siblings of a menutree node.
+def _count_siblings(items: Iterable[dict[str, Any]]) -> list[str]:
+    """Return the unique title of every sibling of a menutree node.
 
-    Titles repeated by the controller are suffixed with ``#2``, ``#3`` ... so
-    that the generated topic paths stay unique and reproducible.
+    The controller lets several siblings share a title, so repeats are suffixed
+    with ``#2``, ``#3`` ... in payload order. The numbering is computed on the
+    whole sibling list and never on the subset that is kept, so a filtered walk
+    (which only descends towards the wanted paths) generates exactly the same
+    titles as a complete walk.
     """
-    base = _item_title(item) or f"#{_to_int(item.get('Id'))}"
-    counters[base] = counters.get(base, 0) + 1
-    count = counters[base]
-    return base if count == 1 else f"{base} #{count}"
+    counters: dict[str, int] = {}
+    titles: list[str] = []
+    for item in items:
+        base = _item_title(item) or f"#{_to_int(item.get('Id'))}"
+        counters[base] = counters.get(base, 0) + 1
+        count = counters[base]
+        titles.append(base if count == 1 else f"{base} #{count}")
+    return titles
+
+
+def _path_segments(raw: Any) -> tuple[str, ...]:
+    """Return the segments of a stored path.
+
+    Paths are stored as a list of segments so that a title containing a slash
+    (the controller has a few, for example ``Heating/Cooling circuit 1``) stays
+    a single segment. A plain string is still accepted, for the values stored
+    by older versions, and is split on ``/``.
+    """
+    if isinstance(raw, (list, tuple)):
+        return tuple(str(part).strip() for part in raw if str(part).strip())
+    return tuple(part.strip() for part in str(raw).split("/") if part.strip())
 
 
 def _is_prefix(candidate: tuple[str, ...], wanted: set[tuple[str, ...]]) -> bool:
@@ -429,13 +450,15 @@ class OZW672Client:
     async def async_walk_datapoints(
         self,
         root_id: int | None = None,
-        wanted_paths: Iterable[str] | None = None,
+        wanted_paths: Iterable[Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Walk the menu tree and describe every datapoint it contains.
 
         When ``wanted_paths`` is given the walk only descends into the branches
         that lead to one of those paths, which keeps the resolution of an
-        already configured entry cheap. Without it the whole tree below
+        already configured entry cheap. A wanted path is a list of segments -
+        not a ``/`` separated string - because the controller allows a title to
+        contain a slash. Without ``wanted_paths`` the whole tree below
         ``root_id`` is enumerated, which is what the configuration flow needs
         in order to offer the topics to the user.
 
@@ -446,9 +469,7 @@ class OZW672Client:
         if wanted_paths is not None:
             wanted = set()
             for raw in wanted_paths:
-                parts = tuple(
-                    part.strip() for part in str(raw).split("/") if part.strip()
-                )
+                parts = _path_segments(raw)
                 if parts:
                     wanted.add(parts)
 
@@ -485,22 +506,27 @@ class OZW672Client:
                 if isinstance(item, dict)
             ]
 
-            counters: dict[str, int] = {}
+            # The unique titles of the siblings are computed on the whole
+            # payload, so that a filtered walk generates exactly the same paths
+            # as a complete walk (the numbering must not depend on the filter).
+            titles = _count_siblings([*menus, *points])
+            menu_titles = titles[: len(menus)]
+            point_titles = titles[len(menus) :]
 
-            for item in menus:
+            for item, title in zip(menus, menu_titles, strict=True):
                 child_id = _to_int(item.get("Id"))
                 if child_id is None:
                     continue
-                child_path = (*parent, _unique_title(item, counters))
+                child_path = (*parent, title)
                 if wanted is not None and not _is_prefix(child_path, wanted):
                     continue
                 queue.append((child_path, child_id))
 
-            for item in points:
+            for item, title in zip(points, point_titles, strict=True):
                 datapoint_id = _to_int(item.get("Id"))
                 if datapoint_id is None:
                     continue
-                path = (*parent, _unique_title(item, counters))
+                path = (*parent, title)
                 if wanted is not None and path not in wanted:
                     continue
                 write_access = item.get("WriteAccess")
@@ -509,6 +535,7 @@ class OZW672Client:
                         DP_ID: datapoint_id,
                         DP_NAME: path[-1],
                         DP_PATH: "/".join(path),
+                        DP_SEGMENTS: list(path),
                         DP_ADDRESS: item.get("Address"),
                         DP_SUBKEY: _to_int(item.get("DpSubKey")),
                         DP_WRITE_ACCESS: str(write_access).strip().lower()

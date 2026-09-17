@@ -86,3 +86,92 @@ jobs:
               sys.exit("\n".join(errors))
           print("all cross-module imports resolve")
           PY
+      - name: Check the instance attributes
+        run: |
+          python - <<'PY'
+          import ast
+          import os
+          import sys
+
+          directory = "custom_components/siemens_ozw672"
+
+          # Attributes provided by the Home Assistant base classes, by the
+          # flow framework and by the modules themselves. Everything else that
+          # is read on self must be assigned, otherwise the integration fails
+          # at runtime with an AttributeError that only shows up in the log.
+          BASE_ATTRS = {
+              "data", "hass", "config_entry", "logger", "name",
+              "update_interval", "coordinator", "context", "entry",
+              "raw_value", "datapoint", "entity_id", "device_info",
+              "unique_id", "available", "icons", "registry_entry",
+              "platform", "should_poll",
+              # Provided by ConfigFlow / OptionsFlow.
+              "async_create_entry", "async_set_unique_id", "async_show_form",
+              "async_show_menu", "async_abort", "async_show_progress",
+              "async_show_progress_done", "async_update_reload_and_abort",
+              "_abort_if_unique_id_configured", "handler", "flow_id",
+          }
+
+          errors = []
+          for filename in sorted(os.listdir(directory)):
+              if not filename.endswith(".py"):
+                  continue
+              path = os.path.join(directory, filename)
+              tree = ast.parse(open(path, encoding="utf-8").read(), path)
+
+              module_names = set()
+              for node in ast.walk(tree):
+                  if isinstance(
+                      node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                  ):
+                      module_names.add(node.name)
+
+              for node in ast.walk(tree):
+                  if not isinstance(node, ast.ClassDef):
+                      continue
+                  members = {
+                      sub.name
+                      for sub in node.body
+                      if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef))
+                  } | {
+                      target.id
+                      for sub in node.body
+                      if isinstance(sub, ast.Assign)
+                      for target in sub.targets
+                      if isinstance(target, ast.Name)
+                  } | {
+                      sub.target.id
+                      for sub in node.body
+                      if isinstance(sub, ast.AnnAssign)
+                      and isinstance(sub.target, ast.Name)
+                  }
+
+                  assigned = set()
+                  reads = {}
+                  for sub in ast.walk(node):
+                      if not isinstance(sub, ast.Attribute):
+                          continue
+                      if not isinstance(sub.value, ast.Name):
+                          continue
+                      if sub.value.id != "self":
+                          continue
+                      if isinstance(sub.ctx, (ast.Store, ast.Del)):
+                          assigned.add(sub.attr)
+                      else:
+                          reads.setdefault(sub.attr, sub.lineno)
+
+                  ignored = BASE_ATTRS | members | module_names
+                  for attr, lineno in reads.items():
+                      if attr in ignored or attr in assigned:
+                          continue
+                      if attr.startswith("__"):
+                          continue
+                      errors.append(
+                          f"{filename}:{lineno} class {node.name} reads "
+                          f"self.{attr}, which is never assigned"
+                      )
+
+          if errors:
+              sys.exit("\n".join(sorted(errors)))
+          print("every self.<attr> read is assigned")
+          PY

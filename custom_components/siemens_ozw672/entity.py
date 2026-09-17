@@ -45,15 +45,15 @@ def _display_name(coordinator: SiemensOZW672Coordinator, datapoint: Datapoint) -
     for example two ``Message d'erreur`` datapoints), so the parent topic is
     prepended when the title is not unique.
     """
-    if not datapoint.path:
+    if not datapoint.segments and not datapoint.path:
         return datapoint.name
     duplicates = any(
-        other.path != datapoint.path and other.name == datapoint.name
+        other.key != datapoint.key and other.name == datapoint.name
         for other in coordinator.datapoints
     )
     if not duplicates:
         return datapoint.name
-    parts = datapoint.path.split("/")
+    parts = datapoint.segments or datapoint.path.split("/")
     if len(parts) >= 2:
         return f"{parts[-2]} {datapoint.name}"
     return datapoint.name

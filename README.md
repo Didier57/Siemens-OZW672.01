@@ -29,7 +29,9 @@ The numeric id is only a cached pointer kept in the config entry. On every setup
 
 The same pass reads the **description** of every configured datapoint on the device and adapts the entity to what the controller announces now: a datapoint that became writable turns into a `number` (or a `select`), the range, the step, the unit and the enumeration values follow the description. A field you edited by hand in *Edit a datapoint* is never overwritten, and a value the device stops reporting is kept as it is. The changes are logged at info level.
 
-Two siblings sharing the same title (the OZW672 has a few, for example `Texte de défaut`) are suffixed `#2`, `#3` … in menu order, which makes the generated paths unique and reproducible.
+Two siblings sharing the same title (the OZW672 has a few, for example `Texte de défaut`) are suffixed `#2`, `#3` … in menu order, which makes the generated paths unique and reproducible. The numbering is computed on the whole sibling list, so a targeted walk finds exactly the same paths as a full one.
+
+The topic is stored as a **list of segments** rather than a joined string, because a title of the controller may itself contain a slash (`Heating/Cooling circuit 1`, `Jour/heure`, `URL / IP address`, …). Splitting a joined path back into segments would produce wrong topics for those branches, so the joined text is only used for display.
 
 ## Features
 
@@ -196,7 +198,7 @@ Intégration Home Assistant pour les régulations de chauffage Siemens exposées
 
 ### Pourquoi les points de données sont identifiés par leur topic
 
-L'OZW672 ne possède pas de numérotation fixe : il construit son arborescence à partir des appareils réellement raccordés, et **les identifiants sont générés pour chaque installation**. Ils peuvent même changer sur une même installation lorsque la liste des appareils du serveur est réactualisée. L'intégration identifie donc chaque point de données par son **chemin de topic** (par exemple `Diagnostic consommateurs/Pompe à chaleur/Modulation compresseur`) et ne conserve l'identifiant numérique que comme pointeur. À chaque démarrage, rechargement ou modification des options, l'intégration relit l'arborescence, compare les topics et met les identifiants à jour. Les identifiants modifiés sont tracés dans le journal, et un topic disparu y est signalé.
+L'OZW672 ne possède pas de numérotation fixe : il construit son arborescence à partir des appareils réellement raccordés, et **les identifiants sont générés pour chaque installation**. Ils peuvent même changer sur une même installation lorsque la liste des appareils du serveur est réactualisée. L'intégration identifie donc chaque point de données par son **chemin de topic** (par exemple `Diagnostic consommateurs/Pompe à chaleur/Modulation compresseur`) et ne conserve l'identifiant numérique que comme pointeur. À chaque démarrage, rechargement ou modification des options, l'intégration relit l'arborescence, compare les topics et met les identifiants à jour. Les identifiants modifiés sont tracés dans le journal, et un topic disparu y est signalé. Le chemin est mémorisé sous forme de **liste de segments**, car un libellé du régulateur peut lui-même contenir une barre oblique (`Heating/Cooling circuit 1`, `Jour/heure`, …) : la version texte n'est utilisée que pour l'affichage.
 
 - **Installation** : HACS → Intégrations → dépôts personnalisés → `https://github.com/Didier57/Siemens-OZW672.01` (catégorie *Integration*), puis redémarrer Home Assistant.
 - **Configuration** : Paramètres → Appareils et services → Ajouter une intégration → *Siemens OZW672*. Renseignez l'adresse IP, l'utilisateur et le mot de passe, puis choisissez **l'appareil de l'installation** parmi ceux que l'OZW672 annonce (par exemple `1 RVS21.831F/127`).

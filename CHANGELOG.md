@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-09-17
+
+### Fixed
+
+- **Datapoints under a topic whose title contains a slash were reported as
+  removed** (`Datapoint 'Configuration/Heating/Cooling circuit 1/…' was not
+  found in the OZW672 menu tree anymore`) although they were perfectly valid.
+  The controller allows a title to contain a slash - the reference plant has
+  seven of them, for example the `Heating/Cooling circuit 1` menu - so the
+  stored path, which was the chain of titles joined with `/`, could not be
+  split back into its segments: the resolution looked for a four level path
+  where the device has three, found nothing, and kept the (correct) saved
+  identifier while logging a false alarm. Datapoints are now identified by the
+  **list of segments** (`segments`), which is stored next to the joined path;
+  the joined path is kept for display only and is never split again. Paths
+  stored by an older version keep working through the previous lookup.
+- **The entity names of duplicate titles were computed from the joined path**,
+  so two datapoints whose titles contained a slash could be disambiguated with
+  the wrong parent. The comparison now uses the segments.
+
+### Changed
+
+- The sibling suffix numbering (`#2`, `#3` ...) that makes repeated titles
+  unique is computed on the whole sibling list at once instead of incrementally
+  while walking, so a filtered walk (used to re-resolve the configured
+  datapoints) generates exactly the same titles as a complete walk.
+
 ## [1.2.1] - 2026-09-17
 
 ### Fixed
@@ -125,6 +152,7 @@ setup to writing values back to the controller.
   `Texte de défaut`) are suffixed `#2`, `#3` … so the generated topic paths are
   unique and reproducible.
 
+[1.2.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.2
 [1.2.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.1
 [1.2.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.0
 [1.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.1.0

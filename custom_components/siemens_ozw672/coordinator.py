@@ -36,6 +36,7 @@ from .const import (
     DP_OPTIONS,
     DP_PATH,
     DP_PLATFORM,
+    DP_SEGMENTS,
     DP_STATE_CLASS,
     DP_STEP,
     DP_SUBKEY,
@@ -63,6 +64,24 @@ def _to_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _config_segments(config: dict[str, Any]) -> list[str] | None:
+    """Return the stored path segments of a datapoint configuration.
+
+    Configurations written by version 1.2.1 and older only have the ``path``
+    string, which cannot be split reliably because a title may contain a slash.
+    Such a path is only split when it contains no ambiguous segment, i.e. when
+    no title of the plant contains a slash; otherwise the datapoint simply
+    keeps using its saved identifier.
+    """
+    segments = config.get(DP_SEGMENTS)
+    if isinstance(segments, (list, tuple)) and segments:
+        return [str(segment) for segment in segments]
+    path = config.get(DP_PATH)
+    if not path:
+        return None
+    return [part for part in str(path).split("/") if part]
 
 
 def _parse_options(raw: Any) -> dict[int, str] | None:
@@ -130,6 +149,7 @@ def build_datapoints(
         if not isinstance(config, dict):
             continue
         path = config.get(DP_PATH) or None
+        segments = _config_segments(config)
         stored_id = config.get(DP_ID)
         try:
             datapoint_id = int(stored_id)
@@ -139,7 +159,7 @@ def build_datapoints(
                 continue
             datapoint_id = 0
 
-        current_id = resolved.get(path) if path else None
+        current_id = resolved.get(tuple(segments)) if segments else None
         if current_id is not None:
             datapoint_id = int(current_id)
 
@@ -148,6 +168,7 @@ def build_datapoints(
                 id=datapoint_id,
                 name=config.get(DP_NAME) or path or f"Datapoint {datapoint_id}",
                 path=path,
+                segments=segments,
                 address=config.get(DP_ADDRESS) or None,
                 subkey=config.get(DP_SUBKEY),
                 write_access=bool(config.get(DP_WRITE_ACCESS, False)),
@@ -195,6 +216,7 @@ def _generated_datapoints(
                 id=datapoint_id,
                 name=config.get(DP_NAME) or f"Datapoint {datapoint_id}",
                 path=config.get(DP_PATH) or None,
+                segments=_config_segments(config),
                 address=config.get(DP_ADDRESS) or None,
                 subkey=config.get(DP_SUBKEY),
                 write_access=bool(config.get(DP_WRITE_ACCESS, False)),
@@ -295,9 +317,14 @@ def _merge_device_fields(
 async def async_resolve_ids(
     client: OZW672Client,
     device_id: int,
-    paths: list[str],
-) -> dict[str, int]:
-    """Resolve the current identifiers of the given menu tree paths."""
+    paths: list[list[str]],
+) -> dict[tuple[str, ...], int]:
+    """Resolve the current identifiers of the given menu tree paths.
+
+    A path is a list of segments, never a ``/`` separated string: the
+    controller allows a title to contain a slash, so joining and splitting the
+    segments would not round trip and a datapoint could not be found again.
+    """
     if not paths:
         return {}
     try:
@@ -310,12 +337,13 @@ async def async_resolve_ids(
         )
         return {}
 
-    wanted = set(paths)
-    return {
-        str(item[DP_PATH]): int(item[DP_ID])
-        for item in found
-        if item.get(DP_PATH) in wanted and item.get(DP_ID) is not None
-    }
+    wanted = {tuple(path) for path in paths}
+    resolved: dict[tuple[str, ...], int] = {}
+    for item in found:
+        segments = tuple(item.get(DP_SEGMENTS) or ())
+        if segments in wanted and item.get(DP_ID) is not None:
+            resolved[segments] = int(item[DP_ID])
+    return resolved
 
 
 class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -336,6 +364,7 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=scan_interval),
         )
         self.client = client
+        self.entry = entry
         self.device_id: int | None = entry.data.get(CONF_DEVICE_ID)
         self.datapoints = build_datapoints(entry)
         self.data: dict[str, Any] = {}
@@ -354,12 +383,18 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         A field that the user edited is never overwritten.
         """
-        paths = [datapoint.path for datapoint in self.datapoints if datapoint.path]
+        paths = [
+            datapoint.segments for datapoint in self.datapoints if datapoint.segments
+        ]
         if paths and self.device_id is not None:
             resolved = await async_resolve_ids(self.client, int(self.device_id), paths)
             moved: dict[int, int] = {}
             for datapoint in self.datapoints:
-                current_id = resolved.get(datapoint.path) if datapoint.path else None
+                current_id = (
+                    resolved.get(tuple(datapoint.segments))
+                    if datapoint.segments
+                    else None
+                )
                 if current_id is None:
                     if datapoint.path:
                         _LOGGER.warning(
