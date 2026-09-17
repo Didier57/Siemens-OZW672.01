@@ -33,7 +33,7 @@ Two siblings sharing the same title (the OZW672 has a few, for example `Texte de
 
 - **UI configuration** — set up everything from the Home Assistant interface (host, credentials, HTTPS).
 - **Plant device selection** — the OZW672 lists the controllers it is wired to; pick the one the entry is for.
-- **Choose your own datapoints** — browse the menu tree **classified by topic** and tick the datapoints you want, during setup and later from the options.
+- **Choose your own datapoints** — the plant is browsed **topic after topic**: tick what you want on each screen, move to the next topic, come back when needed, and finish whenever you like. Works during setup and later from the options.
 - **Topic based identity** — ids are re-resolved against the topics at every reload, so they survive a regeneration of the OZW672 identifiers.
 - **Read datapoints as sensors** — temperatures, pressures, modulation, energy, operating hours, states and messages.
 - **Write datapoints as numbers** — writable numeric datapoints become `number` entities (unit, device class, range and step are detected from the device and can be adjusted).
@@ -81,9 +81,9 @@ Copy the `custom_components/siemens_ozw672` folder into your Home Assistant `con
 The credentials are validated immediately by performing a real login against the device.
 
 4. **Select the plant device.** The OZW672 reports the controllers it is wired to (for example `1 RVS21.831F/127` for the heat pump controller on bus address 1, plus the gateway itself). The integration then reads the whole menu tree of that device.
-5. **Pick the datapoints.** Choose a topic in the list (for example `Configuration/Circuit de chauffage 1`), tick the datapoints it contains — the name, the entity type, the unit and the guessed device class are filled in automatically — and repeat for as many topics as you need. Finish with **Finish**.
+5. **Pick the datapoints, topic after topic.** The plant is browsed one topic at a time (for example `Configuration/Circuit de chauffage 1`): each screen lists the datapoints of that topic, tick the ones you want and continue. Tick again what you already have — the datapoints you picked earlier stay ticked when you come back — and use **Previous topic** to review. You can finish at any moment; everything already ticked is kept.
 
-The number entity is created for writable numeric datapoints; everything else becomes a sensor. Read-only numeric datapoints with a unit get a matching device class and a `measurement`/`total_increasing` state class.
+The name, the entity type, the unit and the guessed device class are filled in automatically. The number entity is created for writable numeric datapoints; everything else becomes a sensor. Read-only numeric datapoints with a unit get a matching device class and a `measurement`/`total_increasing` state class.
 
 ## Entities
 
@@ -103,7 +103,7 @@ Datapoints that are configured but not wired on your plant (`----`, `---`) are r
 Go to **Settings → Devices & services → Siemens OZW672 → Configure**:
 
 - **Polling settings** — change the scan interval (10 – 3600 s).
-- **Add datapoints** — pick a topic, then tick the datapoints to add. Already configured datapoints are skipped.
+- **Add datapoints** — the topics of the plant are browsed one after the other. Tick the datapoints to add on each screen: they are kept as you go, **Previous topic** lets you review, and **Save** stores everything picked so far. Re-running it later lets you add or remove datapoints of the topics you visit; the datapoints you already configured keep their settings.
 - **Remove datapoints** — tick the datapoints to drop from the entry.
 - **Edit a datapoint** — adjust the name, the entity type (sensor/number/select), the value type (`Numeric`/`Enumeration`), the enumeration options, the unit, the device class, the state class and the min/max/step of a number.
 
@@ -186,7 +186,7 @@ L'OZW672 ne possède pas de numérotation fixe : il construit son arborescence �
 
 - **Installation** : HACS → Intégrations → dépôts personnalisés → `https://github.com/Didier57/Siemens-OZW672.01` (catégorie *Integration*), puis redémarrer Home Assistant.
 - **Configuration** : Paramètres → Appareils et services → Ajouter une intégration → *Siemens OZW672*. Renseignez l'adresse IP, l'utilisateur et le mot de passe, puis choisissez **l'appareil de l'installation** parmi ceux que l'OZW672 annonce (par exemple `1 RVS21.831F/127`).
-- **Choix des points de données** : sélectionnez un topic, cochez les points de données qu'il contient (nom, type d'entité, unité et classe d'appareil sont déduits automatiquement), puis **Terminer**. Les points inscriptibles deviennent des entités `number`, les énumérations peuvent devenir des `select` en renseignant leur liste d'options, tout le reste devient des capteurs.
+- **Choix des points de données** : l'installation est parcourue **topic par topic**. Chaque écran liste les points de données d'un topic : cochez ceux qui vous intéressent, passez au topic suivant avec **Topic suivant**, revenez avec **Topic précédent**, et terminez quand vous voulez — tout ce qui est coché est conservé. Les points inscriptibles deviennent des entités `number`, les énumérations peuvent devenir des `select` en renseignant leur liste d'options, tout le reste devient des capteurs.
 - **Options** : *Réglages de scrutation* (intervalle de 10 à 3600 s), *Ajouter des points de données*, *Supprimer des points de données* et *Modifier un point de données* (nom, type, unité, classes, min/max/pas, options d'énumération).
 - **Mise à niveau depuis la 1.x** : le catalogue intégré est supprimé — les identifiants étant propres à chaque installation, une liste figée ne pouvait pas convenir à tout le monde. Les points de données que vous aviez déclarés manuellement en 1.x sont conservés ; ceux du catalogue intégré doivent être resélectionnés via *Configurer → Ajouter des points de données*.
 

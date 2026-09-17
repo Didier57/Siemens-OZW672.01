@@ -30,16 +30,22 @@
       },
       "add_datapoints": {
         "title": "Ajouter des datapoints",
-        "description": "Choisissez le topic du régulateur à parcourir. Les datapoints sont classés par topic, exactement comme dans l'arborescence de l'OZW672.",
-        "data": {
-          "topic": "Topic"
-        }
+        "description": "Les datapoints de l'installation sont parcourus topic par topic, exactement comme dans l'arborescence de l'OZW672. Chaque écran liste les datapoints d'un topic : cochez ceux que vous voulez, puis continuez."
       },
       "pick": {
         "title": "Sélection des datapoints",
-        "description": "Sélectionnez les datapoints de ce topic à ajouter. Les datapoints numériques inscriptibles deviennent des nombres, les autres des capteurs ; le type d'entité peut être modifié ensuite dans les options.",
+        "description": "Topic {index}/{total} : {topic}\n\nLes datapoints déjà cochés le restent lorsque vous revenez sur ce topic. Les datapoints numériques inscriptibles deviennent des nombres, les autres des capteurs ; le type d'entité peut être modifié ensuite dans les options.",
         "data": {
           "datapoints": "Datapoints"
+        }
+      },
+      "topic_menu": {
+        "title": "Datapoints de ce topic enregistrés",
+        "description": "Tout ce qui a été coché est conservé. Continuez avec le topic suivant, revenez au précédent, ou terminez la sélection.",
+        "menu_options": {
+          "next_topic": "Topic suivant",
+          "previous_topic": "Topic précédent",
+          "finish": "Terminer"
         }
       },
       "reauth_confirm": {
@@ -82,16 +88,22 @@
       },
       "add_datapoints": {
         "title": "Ajouter des datapoints",
-        "description": "Choisissez le topic du régulateur à parcourir. Les datapoints sont classés par topic, exactement comme dans l'arborescence de l'OZW672.",
-        "data": {
-          "topic": "Topic"
-        }
+        "description": "Les datapoints de l'installation sont parcourus topic par topic, exactement comme dans l'arborescence de l'OZW672. Chaque écran liste les datapoints d'un topic : cochez ceux que vous voulez, puis continuez."
       },
       "pick": {
         "title": "Sélection des datapoints",
-        "description": "Sélectionnez les datapoints de ce topic à ajouter. Les datapoints numériques inscriptibles deviennent des nombres, les autres des capteurs ; le type d'entité peut être modifié ensuite avec « Modifier un datapoint ».",
+        "description": "Topic {index}/{total} : {topic}\n\nLes datapoints déjà cochés le restent lorsque vous revenez sur ce topic. Les datapoints numériques inscriptibles deviennent des nombres, les autres des capteurs ; le type d'entité peut être modifié ensuite avec « Modifier un datapoint ».",
         "data": {
           "datapoints": "Datapoints"
+        }
+      },
+      "topic_menu": {
+        "title": "Datapoints de ce topic enregistrés",
+        "description": "Tout ce qui a été coché est conservé. Continuez avec le topic suivant, revenez au précédent, ou enregistrez.",
+        "menu_options": {
+          "next_topic": "Topic suivant",
+          "previous_topic": "Topic précédent",
+          "finish": "Enregistrer"
         }
       },
       "remove_datapoints": {

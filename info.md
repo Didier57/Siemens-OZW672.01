@@ -9,8 +9,9 @@ Local Home Assistant integration for Siemens heating controllers exposed through
 - Plant device selection: pick the controller the OZW672 is wired to.
 - **Datapoints are identified by their topic**, because the OZW672 generates the
   numeric ids for each installation; the ids are checked and updated on every reload.
-- Browse the menu tree **classified by topic** and pick the datapoints you want,
-  during setup and from the options.
+- Browse the plant **topic after topic** and pick the datapoints you want
+  (next / previous topic, finish whenever you like), during setup and from the
+  options.
 - Read-only datapoints become sensors (temperatures, pressure, modulation, energy,
   operating hours, states, messages), writable numeric datapoints become numbers,
   enumerations can become selects.
@@ -38,8 +39,9 @@ par le serveur web **OZW672**.
 - Choix de l'appareil de l'installation parmi ceux annoncés par l'OZW672.
 - **Les points de données sont identifiés par leur topic** : l'OZW672 génère les
   identifiants pour chaque installation et les vérifie à chaque rechargement.
-- Parcours de l'arborescence **classée par topic** pour choisir librement ses points
-  de données, à l'installation comme depuis les options.
+- Parcours de l'installation **topic par topic** pour choisir librement ses
+  points de données (topic suivant / précédent, validation quand vous voulez),
+  à l'installation comme depuis les options.
 - Capteurs en lecture, entités `number` pour les consignes inscriptibles, `select`
   pour les énumérations.
 - Service générique `siemens_ozw672.write_datapoint`.

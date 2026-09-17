@@ -30,16 +30,22 @@
       },
       "add_datapoints": {
         "title": "Add datapoints",
-        "description": "Choose the topic of the controller to browse. The datapoints are grouped by topic, exactly as in the menu tree of the OZW672.",
-        "data": {
-          "topic": "Topic"
-        }
+        "description": "The datapoints of the plant are browsed one topic after the other, exactly as in the menu tree of the OZW672. Each screen lists the datapoints of one topic: tick the ones you want, then continue."
       },
       "pick": {
         "title": "Select the datapoints",
-        "description": "Select the datapoints of this topic to add. Writable numeric datapoints become numbers, the others become sensors; the entity type can be changed afterwards in the options.",
+        "description": "Topic {index}/{total}: {topic}\n\nThe datapoints you ticked earlier stay ticked when you come back. Writable numeric datapoints become numbers, the others become sensors; the entity type can be changed afterwards in the options.",
         "data": {
           "datapoints": "Datapoints"
+        }
+      },
+      "topic_menu": {
+        "title": "Datapoints of this topic stored",
+        "description": "Everything ticked so far is kept. Continue with the next topic, go back to the previous one, or finish the selection.",
+        "menu_options": {
+          "next_topic": "Next topic",
+          "previous_topic": "Previous topic",
+          "finish": "Finish"
         }
       },
       "reauth_confirm": {
@@ -82,16 +88,22 @@
       },
       "add_datapoints": {
         "title": "Add datapoints",
-        "description": "Choose the topic of the controller to browse. The datapoints are grouped by topic, exactly as in the menu tree of the OZW672.",
-        "data": {
-          "topic": "Topic"
-        }
+        "description": "The datapoints of the plant are browsed one topic after the other, exactly as in the menu tree of the OZW672. Each screen lists the datapoints of one topic: tick the ones you want, then continue."
       },
       "pick": {
         "title": "Select the datapoints",
-        "description": "Select the datapoints of this topic to add. Writable numeric datapoints become numbers, the others become sensors; the entity type can be changed afterwards with 'Edit a datapoint'.",
+        "description": "Topic {index}/{total}: {topic}\n\nThe datapoints you ticked earlier stay ticked when you come back. Writable numeric datapoints become numbers, the others become sensors; the entity type can be changed afterwards with 'Edit a datapoint'.",
         "data": {
           "datapoints": "Datapoints"
+        }
+      },
+      "topic_menu": {
+        "title": "Datapoints of this topic stored",
+        "description": "Everything ticked so far is kept. Continue with the next topic, go back to the previous one, or save.",
+        "menu_options": {
+          "next_topic": "Next topic",
+          "previous_topic": "Previous topic",
+          "finish": "Save"
         }
       },
       "remove_datapoints": {

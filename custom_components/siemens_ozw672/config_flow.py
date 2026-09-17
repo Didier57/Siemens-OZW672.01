@@ -83,8 +83,9 @@ MENU_REMOVE_DATAPOINTS = "remove_datapoints"
 MENU_EDIT_DATAPOINT = "edit_datapoint"
 MENU_SETTINGS = "settings"
 MENU_FINISH = "finish"
+MENU_NEXT_TOPIC = "next_topic"
+MENU_PREVIOUS_TOPIC = "previous_topic"
 
-TOPIC_FIELD = "topic"
 DATAPOINTS_FIELD = "datapoints"
 KEY_FIELD = "key"
 ENUM_OPTIONS_FIELD = "enum_options"
@@ -219,21 +220,6 @@ def _group_topics(walk: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]
     return topics
 
 
-def _topic_selector(walk: list[dict[str, Any]]) -> SelectSelector:
-    """Build a selector listing the topics of the plant."""
-    topics = _group_topics(walk)
-    options = [
-        SelectOptionDict(
-            value=parent,
-            label=f"{parent} ({len(items)})",
-        )
-        for parent, items in sorted(topics.items())
-    ]
-    return SelectSelector(
-        SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN)
-    )
-
-
 def _datapoint_selector(items: list[dict[str, Any]]) -> SelectSelector:
     """Build a multi-select listing the datapoints of one topic."""
     options = [
@@ -248,6 +234,50 @@ def _datapoint_selector(items: list[dict[str, Any]]) -> SelectSelector:
             options=options, multiple=True, mode=SelectSelectorMode.LIST
         )
     )
+
+
+def _ordered_topics(walk: list[dict[str, Any]]) -> list[str]:
+    """Return the topics of a plant in menu tree order."""
+    return list(_group_topics(walk))
+
+
+def _selected_paths(
+    items: list[dict[str, Any]], datapoints: dict[str, Any]
+) -> list[str]:
+    """Return the paths of a topic that are already configured."""
+    return [
+        str(item.get(DP_PATH)) for item in items if datapoint_key(item) in datapoints
+    ]
+
+
+async def _async_apply_topic(
+    hass: HomeAssistant,
+    data: dict[str, Any],
+    datapoints: dict[str, Any],
+    items: list[dict[str, Any]],
+    chosen: set[str],
+) -> None:
+    """Store the datapoints chosen for one topic.
+
+    Datapoints that are already configured keep their settings; newly ticked
+    ones are described by the device to guess their type and unit, and the
+    ones that were unticked are removed.
+    """
+    missing = [
+        int(item[DP_ID])
+        for item in items
+        if str(item.get(DP_PATH)) in chosen and datapoint_key(item) not in datapoints
+    ]
+    details = await _async_describe(hass, data, missing)
+    for item in items:
+        key = datapoint_key(item)
+        if str(item.get(DP_PATH)) in chosen:
+            if key not in datapoints:
+                datapoints[key] = _build_datapoint(
+                    item, details.get(int(item[DP_ID]), {})
+                )
+        else:
+            datapoints.pop(key, None)
 
 
 def _build_datapoint(item: dict[str, Any], details: dict[str, Any]) -> dict[str, Any]:
@@ -475,7 +505,8 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
         self._selection: dict[str, dict[str, Any]] = {}
         self._device_id: int | None = None
         self._device_name: str | None = None
-        self._topic: str = ""
+        self._topics: list[str] = []
+        self._topic_index: int = 0
 
     def _async_create_entry(self) -> FlowResult:
         """Create the config entry for the connection and the chosen device."""
@@ -602,46 +633,80 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
             menu_options=[MENU_ADD_DATAPOINTS, MENU_FINISH],
         )
 
+    def _current_topic(self) -> str:
+        """Return the topic being browsed."""
+        if not self._topics:
+            return ""
+        index = min(max(self._topic_index, 0), len(self._topics) - 1)
+        return self._topics[index]
+
+    async def _async_show_topic(self) -> FlowResult:
+        """Show the datapoints of the topic being browsed."""
+        topic = self._current_topic()
+        items = _group_topics(self._walk).get(topic, [])
+        return self.async_show_form(
+            step_id="pick",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        DATAPOINTS_FIELD,
+                        default=_selected_paths(items, self._selection),
+                    ): _datapoint_selector(items)
+                }
+            ),
+            description_placeholders={
+                "topic": topic,
+                "index": str(self._topic_index + 1),
+                "total": str(len(self._topics)),
+            },
+        )
+
+    async def _async_show_topic_menu(self) -> FlowResult:
+        """Offer to browse the next topic or to finish."""
+        menu: list[str] = []
+        if self._topic_index < len(self._topics) - 1:
+            menu.append(MENU_NEXT_TOPIC)
+        if self._topic_index > 0:
+            menu.append(MENU_PREVIOUS_TOPIC)
+        menu.append(MENU_FINISH)
+        return self.async_show_menu(step_id="topic_menu", menu_options=menu)
+
     async def async_step_add_datapoints(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Pick the topic to browse."""
-        if user_input is not None:
-            self._topic = str(user_input[TOPIC_FIELD])
-            return await self.async_step_pick()
+        """Browse the topics of the plant one after the other."""
+        self._topics = _ordered_topics(self._walk)
+        self._topic_index = 0
+        if not self._topics:
+            return self._async_create_entry()
+        return await self._async_show_topic()
 
-        return self.async_show_form(
-            step_id=MENU_ADD_DATAPOINTS,
-            data_schema=vol.Schema(
-                {vol.Required(TOPIC_FIELD): _topic_selector(self._walk)}
-            ),
-        )
+    async def async_step_next_topic(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Browse the next topic."""
+        self._topic_index += 1
+        return await self._async_show_topic()
+
+    async def async_step_previous_topic(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Browse the previous topic."""
+        self._topic_index = max(self._topic_index - 1, 0)
+        return await self._async_show_topic()
 
     async def async_step_pick(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Add the datapoints of the selected topic."""
-        items = _group_topics(self._walk).get(self._topic, [])
-
+        """Store the datapoints chosen for the topic being browsed."""
         if user_input is not None:
-            chosen = {str(path) for path in user_input.get(DATAPOINTS_FIELD, [])}
-            selected = [item for item in items if str(item.get(DP_PATH)) in chosen]
-            details = await _async_describe(
-                self.hass,
-                self._connection,
-                [int(item[DP_ID]) for item in selected],
+            items = _group_topics(self._walk).get(self._current_topic(), [])
+            chosen = {str(path) for path in user_input.get(DATAPOINTS_FIELD) or []}
+            await _async_apply_topic(
+                self.hass, self._connection, self._selection, items, chosen
             )
-            for item in selected:
-                config = _build_datapoint(item, details.get(int(item[DP_ID]), {}))
-                self._selection[datapoint_key(config)] = config
-            return await self.async_step_datapoints()
-
-        return self.async_show_form(
-            step_id="pick",
-            data_schema=vol.Schema(
-                {vol.Optional(DATAPOINTS_FIELD): _datapoint_selector(items)}
-            ),
-        )
+            return await self._async_show_topic_menu()
+        return await self._async_show_topic()
 
     async def async_step_finish(
         self, user_input: dict[str, Any] | None = None
@@ -715,12 +780,60 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
     def __init__(self) -> None:
         """Initialise the flow."""
         self._walk: list[dict[str, Any]] = []
-        self._topic: str = ""
+        self._topics: list[str] = []
+        self._topic_index: int = 0
+        self._working: dict[str, Any] | None = None
+        self._edit_key: str = ""
 
     @property
     def _datapoints(self) -> dict[str, Any]:
-        """Return the datapoints stored in the options."""
-        return dict(self.config_entry.options.get(CONF_DATAPOINTS) or {})
+        """Return the datapoints being edited, as a working copy."""
+        if self._working is None:
+            self._working = dict(self.config_entry.options.get(CONF_DATAPOINTS) or {})
+        return self._working
+
+    def _save(self) -> FlowResult:
+        """Write the datapoints back into the options."""
+        options = {**self.config_entry.options, CONF_DATAPOINTS: self._datapoints}
+        return self.async_create_entry(data=options)
+
+    def _current_topic(self) -> str:
+        """Return the topic being browsed."""
+        if not self._topics:
+            return ""
+        index = min(max(self._topic_index, 0), len(self._topics) - 1)
+        return self._topics[index]
+
+    async def _async_show_topic(self) -> FlowResult:
+        """Show the datapoints of the topic being browsed."""
+        topic = self._current_topic()
+        items = _group_topics(self._walk).get(topic, [])
+        return self.async_show_form(
+            step_id="pick",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        DATAPOINTS_FIELD,
+                        default=_selected_paths(items, self._datapoints),
+                    ): _datapoint_selector(items)
+                }
+            ),
+            description_placeholders={
+                "topic": topic,
+                "index": str(self._topic_index + 1),
+                "total": str(len(self._topics)),
+            },
+        )
+
+    def _show_topic_menu(self) -> FlowResult:
+        """Offer to browse the next topic or to save."""
+        menu: list[str] = []
+        if self._topic_index < len(self._topics) - 1:
+            menu.append(MENU_NEXT_TOPIC)
+        if self._topic_index > 0:
+            menu.append(MENU_PREVIOUS_TOPIC)
+        menu.append(MENU_FINISH)
+        return self.async_show_menu(step_id="topic_menu", menu_options=menu)
 
     async def _async_walk_tree(self) -> None:
         """Read the menu tree of the configured controller."""
@@ -753,7 +866,11 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
     ) -> FlowResult:
         """Update the polling interval."""
         if user_input is not None:
-            options = {**self.config_entry.options, **user_input}
+            options = {
+                **self.config_entry.options,
+                **user_input,
+                CONF_DATAPOINTS: self._datapoints,
+            }
             return self.async_create_entry(data=options)
 
         current = self.config_entry.options.get(
@@ -779,7 +896,7 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
     async def async_step_add_datapoints(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Pick the topic to browse."""
+        """Browse the topics of the plant one after the other."""
         if not self._walk:
             await self._async_walk_tree()
         if not self._walk:
@@ -789,59 +906,46 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
                 errors={"base": "cannot_connect"},
             )
 
-        if user_input is not None:
-            self._topic = str(user_input[TOPIC_FIELD])
-            return await self.async_step_pick()
+        self._topics = _ordered_topics(self._walk)
+        self._topic_index = 0
+        return await self._async_show_topic()
 
-        return self.async_show_form(
-            step_id=MENU_ADD_DATAPOINTS,
-            data_schema=vol.Schema(
-                {vol.Required(TOPIC_FIELD): _topic_selector(self._walk)}
-            ),
-        )
+    async def async_step_next_topic(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Browse the next topic."""
+        self._topic_index += 1
+        return await self._async_show_topic()
+
+    async def async_step_previous_topic(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Browse the previous topic."""
+        self._topic_index = max(self._topic_index - 1, 0)
+        return await self._async_show_topic()
+
+    async def async_step_finish(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Save the datapoints and close the options."""
+        return self._save()
 
     async def async_step_pick(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Add the datapoints of the selected topic to the entry."""
-        items = _group_topics(self._walk).get(self._topic, [])
-        datapoints = self._datapoints
-
+        """Store the datapoints chosen for the topic being browsed."""
         if user_input is not None:
-            chosen = {str(path) for path in user_input.get(DATAPOINTS_FIELD, [])}
-            selected = [item for item in items if str(item.get(DP_PATH)) in chosen]
-            details = await _async_describe(
+            items = _group_topics(self._walk).get(self._current_topic(), [])
+            chosen = {str(path) for path in user_input.get(DATAPOINTS_FIELD) or []}
+            await _async_apply_topic(
                 self.hass,
                 dict(self.config_entry.data),
-                [int(item[DP_ID]) for item in selected],
+                self._datapoints,
+                items,
+                chosen,
             )
-            for item in selected:
-                config = _build_datapoint(item, details.get(int(item[DP_ID]), {}))
-                datapoints[datapoint_key(config)] = config
-            options = {**self.config_entry.options, CONF_DATAPOINTS: datapoints}
-            return self.async_create_entry(data=options)
-
-        options_list = [
-            SelectOptionDict(
-                value=str(item.get(DP_PATH)),
-                label=f"{item.get(DP_NAME)}  [{item.get(DP_ID)}]",
-            )
-            for item in items
-        ]
-        return self.async_show_form(
-            step_id="pick",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(DATAPOINTS_FIELD): SelectSelector(
-                        SelectSelectorConfig(
-                            options=options_list,
-                            multiple=True,
-                            mode=SelectSelectorMode.LIST,
-                        )
-                    )
-                }
-            ),
-        )
+            return self._show_topic_menu()
+        return await self._async_show_topic()
 
     async def async_step_remove_datapoints(
         self, user_input: dict[str, Any] | None = None
@@ -854,8 +958,7 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
         if user_input is not None:
             for key in user_input.get(DATAPOINTS_FIELD, []):
                 datapoints.pop(key, None)
-            options = {**self.config_entry.options, CONF_DATAPOINTS: datapoints}
-            return self.async_create_entry(data=options)
+            return self._save()
 
         options_list = [
             SelectOptionDict(
@@ -916,15 +1019,14 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
     ) -> FlowResult:
         """Edit the metadata of a datapoint."""
         datapoints = self._datapoints
-        key = getattr(self, "_edit_key", "")
+        key = self._edit_key
         config = datapoints.get(key)
         if config is None:
             return self.async_abort(reason="no_datapoints")
 
         if user_input is not None:
             datapoints[key] = _apply_datapoint_form(config, user_input)
-            options = {**self.config_entry.options, CONF_DATAPOINTS: datapoints}
-            return self.async_create_entry(data=options)
+            return self._save()
 
         return self.async_show_form(
             step_id="edit_datapoint_form",

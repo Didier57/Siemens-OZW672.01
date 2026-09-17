@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-09-17
+
+### Changed
+
+- **Datapoint selection is now a guided walk through the topics.** Instead of
+  choosing a topic in a dropdown and being sent back to a menu after each pick,
+  the plant is browsed topic after topic: each screen lists the datapoints of
+  one topic with a `Topic index/total` caption, `Next topic` moves on,
+  `Previous topic` goes back and `Finish` (or `Save` in the options) stores the
+  selection at any time.
+- Datapoints that are already configured are pre-ticked when their topic is
+  shown, so revisiting a topic no longer risks losing the previous choice, and
+  unticking a datapoint removes it as expected.
+- In the options, the datapoint changes are accumulated in a working copy and
+  written when the user saves, so a wrong click no longer ends the flow and
+  forces starting over.
+
 ## [2.0.0] - 2026-09-17
 
 ### Added
@@ -139,6 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HACS and hassfest validation workflows.
 - English and French translations.
 
+[2.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v2.1.0
 [2.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v2.0.0
 [1.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.1.0
 [1.0.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.2
