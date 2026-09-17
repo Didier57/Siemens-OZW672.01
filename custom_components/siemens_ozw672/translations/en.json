@@ -38,6 +38,7 @@
         "title": "Siemens OZW672 options",
         "menu_options": {
           "settings": "Polling settings",
+          "builtin_datapoints": "Enable / disable built-in datapoints",
           "add_datapoint": "Add a custom datapoint",
           "remove_datapoint": "Remove a custom datapoint"
         }
@@ -47,6 +48,13 @@
         "description": "How often the OZW672 datapoints are read.",
         "data": {
           "scan_interval": "Scan interval"
+        }
+      },
+      "builtin_datapoints": {
+        "title": "Built-in datapoints",
+        "description": "Select the datapoints that exist on your installation and that you want to poll. The built-in catalog matches the reference installation only: deselect the datapoints your plant does not have (they would otherwise fail to read), and declare your own identifiers with 'Add a custom datapoint'.",
+        "data": {
+          "disabled": "Disabled datapoints"
         }
       },
       "add_datapoint": {

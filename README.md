@@ -96,13 +96,14 @@ The credentials are validated immediately by performing a real login against the
 | --- | --- |
 | Connectivity | On when the last poll returned at least one value. Disabled by default. |
 
-> Datapoint ids depend on the plant configuration of your OZW672. Ids that do not exist on your device simply stay `unknown`; use the options flow to add your own.
+> Datapoint ids depend on the plant configuration of your OZW672, so the built-in catalog below matches the reference installation only. A datapoint your device does not have fails with the device error `read failed` and stays `unknown`. Check the Home Assistant log for the faulty ids, disable them and declare your own — see [Custom datapoints](#custom-datapoints).
 
 ## Custom datapoints
 
 Go to **Settings → Devices & services → Siemens OZW672 → Configure**:
 
 - **Polling settings** — change the scan interval (10 – 3600 s).
+- **Enable / disable built-in datapoints** — the built-in catalog matches the reference installation only. On a different plant, deselect the datapoints your device does not have; they would otherwise fail with a `read failed` device error. A disabled datapoint can be re-declared as a custom one.
 - **Add a custom datapoint** — declare an extra datapoint with its id, name, entity type (sensor/number/select), unit, device class and enumeration options.
 - **Remove a custom datapoint** — drop previously declared ones.
 
@@ -189,5 +190,6 @@ Intégration Home Assistant pour les régulations de chauffage Siemens exposées
 - **Configuration** : Paramètres → Appareils et services → Ajouter une intégration → *Siemens OZW672*. Renseignez l'adresse IP, l'utilisateur et le mot de passe du serveur web OZW672.
 - **Entités** : capteurs (températures chaudière/retour/ambiante/extérieure/ECS, modulation, états, défaut), nombres modifiables (consignes confort/réduit, courbe de chauffe) et une liste pour le mode de fonctionnement (Automatique / Réduit / Confort).
 - **Points de données personnalisés** : via le bouton *Configurer* de l'intégration, vous pouvez déclarer n'importe quel identifiant de l'arborescence de l'OZW672.
+- **Important** : le catalogue de points de données livré correspond à l'installation de référence. Si votre installation diffère, décochez les points qui n'existent pas chez vous dans *Configurer → Activer / désactiver les points de données intégrés*, puis déclarez vos propres identifiants. Pour trouver les bons identifiants, ouvrez `http://<ip>/main.app?SessionID=<session>&Section=webapi` après vous être connecté au serveur web.
 
 Crédits à [vencakratky](https://github.com/vencakratky/API-OZW672--HomeAssistant) pour la documentation de l'API.

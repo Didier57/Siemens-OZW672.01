@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-09-17
+
+### Added
+
+- New options step **Enable / disable built-in datapoints**. The built-in
+  catalog matches the reference installation only; on a different plant the
+  datapoints that do not exist have to be disabled and replaced by custom ones.
+- A datapoint of the built-in catalog that is disabled can be re-declared as a
+  custom datapoint.
+
+### Fixed
+
+- Device side errors were swallowed. A failed read answers with
+  `{"Data": {}, "Result": {"Success": "false", "Error": {...}}}`, which was
+  turned into a `None` value, so every entity silently showed `unknown`. The
+  device message (for example `read failed (Nr 6)`) is now raised and logged.
+- A datapoint that cannot be read is logged once at warning level instead of
+  only at debug level, and a completely unreadable catalog is reported as an
+  error without preventing the config entry from loading, so the options flow
+  stays reachable.
+
 ## [1.0.1] - 2026-09-17
 
 ### Fixed
@@ -34,5 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HACS and hassfest validation workflows.
 - English and French translations.
 
+[1.0.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.0

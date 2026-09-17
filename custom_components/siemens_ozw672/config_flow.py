@@ -33,6 +33,7 @@ from .api import (
 )
 from .const import (
     CONF_CUSTOM_DATAPOINTS,
+    CONF_DISABLED_DATAPOINTS,
     CONF_HOST,
     CONF_PASSWORD,
     CONF_PORT,
@@ -58,6 +59,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 MENU_ADD_DATAPOINT = "add_datapoint"
+MENU_BUILTIN_DATAPOINTS = "builtin_datapoints"
 MENU_REMOVE_DATAPOINT = "remove_datapoint"
 MENU_SETTINGS = "settings"
 
@@ -324,7 +326,55 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
         """Show the options menu."""
         return self.async_show_menu(
             step_id="init",
-            menu_options=[MENU_SETTINGS, MENU_ADD_DATAPOINT, MENU_REMOVE_DATAPOINT],
+            menu_options=[
+                MENU_SETTINGS,
+                MENU_BUILTIN_DATAPOINTS,
+                MENU_ADD_DATAPOINT,
+                MENU_REMOVE_DATAPOINT,
+            ],
+        )
+
+    async def async_step_builtin_datapoints(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Enable or disable the datapoints of the built-in catalog.
+
+        The catalog matches the reference installation only, so datapoints that
+        do not exist on another plant have to be disabled before they can be
+        replaced by custom ones.
+        """
+        if user_input is not None:
+            options = {
+                **self.config_entry.options,
+                CONF_DISABLED_DATAPOINTS: list(user_input.get("disabled", [])),
+            }
+            return self.async_create_entry(data=options)
+
+        choices = [
+            SelectOptionDict(
+                value=str(datapoint.id),
+                label=f"{datapoint.name} (id {datapoint.id})",
+            )
+            for datapoint in DATAPOINTS
+        ]
+        current = [
+            str(raw_id)
+            for raw_id in self.config_entry.options.get(CONF_DISABLED_DATAPOINTS, [])
+            or []
+        ]
+        return self.async_show_form(
+            step_id=MENU_BUILTIN_DATAPOINTS,
+            data_schema=vol.Schema(
+                {
+                    vol.Optional("disabled", default=current): SelectSelector(
+                        SelectSelectorConfig(
+                            options=choices,
+                            multiple=True,
+                            mode=SelectSelectorMode.LIST,
+                        )
+                    )
+                }
+            ),
         )
 
     async def async_step_settings(
@@ -366,7 +416,14 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
 
         if user_input is not None:
             datapoint_id = str(int(user_input["datapoint_id"]))
-            known = {str(item.id) for item in DATAPOINTS}
+            disabled = {
+                str(raw_id)
+                for raw_id in self.config_entry.options.get(
+                    CONF_DISABLED_DATAPOINTS, []
+                )
+                or []
+            }
+            known = {str(item.id) for item in DATAPOINTS} - disabled
             if datapoint_id in custom or datapoint_id in known:
                 errors["datapoint_id"] = "duplicate"
             else:

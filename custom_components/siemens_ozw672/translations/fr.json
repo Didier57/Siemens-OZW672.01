@@ -38,6 +38,7 @@
         "title": "Options du Siemens OZW672",
         "menu_options": {
           "settings": "Paramètres d'interrogation",
+          "builtin_datapoints": "Activer / désactiver les points de données intégrés",
           "add_datapoint": "Ajouter un point de données personnalisé",
           "remove_datapoint": "Supprimer un point de données personnalisé"
         }
@@ -47,6 +48,13 @@
         "description": "Fréquence de lecture des points de données de l'OZW672.",
         "data": {
           "scan_interval": "Intervalle d'interrogation"
+        }
+      },
+      "builtin_datapoints": {
+        "title": "Points de données intégrés",
+        "description": "Sélectionnez les points de données présents sur votre installation et que vous souhaitez interroger. Le catalogue intégré correspond à l'installation de référence uniquement : décochez les points que votre installation ne possède pas (leur lecture échouerait sinon) et déclarez vos propres identifiants avec « Ajouter un point de données personnalisé ».",
+        "data": {
+          "disabled": "Points de données désactivés"
         }
       },
       "add_datapoint": {

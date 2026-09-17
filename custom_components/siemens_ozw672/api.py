@@ -47,6 +47,39 @@ class OZW672ApiError(OZW672Error):
     """Raised when the OZW672 API returns an unexpected response."""
 
 
+def _extract_error(payload: Any) -> str | None:
+    """Return the device side error message of a response, if there is one.
+
+    Failures are reported by the OZW as, for example::
+
+        {"Data": {},
+         "Result": {"Success": "false",
+                    "Error": {"Txt": "read failed", "Nr": "6"}}}
+    """
+    if not isinstance(payload, dict):
+        return None
+
+    for value in (payload, payload.get("Data"), payload.get("Result")):
+        if not isinstance(value, dict):
+            continue
+
+        error = value.get("Error", value.get("error"))
+        if isinstance(error, dict):
+            text = error.get("Txt", error.get("Text", error.get("txt")))
+            number = error.get("Nr", error.get("nr"))
+            if text:
+                return f"{text} (Nr {number})" if number is not None else str(text)
+            return json.dumps(error, sort_keys=True)
+        if isinstance(error, str) and error:
+            return error
+
+        success = value.get("Success", value.get("success"))
+        if success is not None and str(success).lower() in {"false", "0", "no"}:
+            return "unknown device error"
+
+    return None
+
+
 class OZW672Client:
     """Thin async wrapper around the OZW672 web API."""
 
@@ -135,13 +168,11 @@ class OZW672Client:
         """
         _LOGGER.debug("Datapoint %s raw response: %r", datapoint_id, payload)
 
-        if isinstance(payload, dict):
-            error = payload.get("Error") or payload.get("error")
-            if error:
-                raise OZW672ApiError(
-                    f"Read of datapoint {datapoint_id} failed: {error}"
-                )
+        error = _extract_error(payload)
+        if error is not None:
+            raise OZW672ApiError(f"Read of datapoint {datapoint_id} failed: {error}")
 
+        if isinstance(payload, dict):
             for key in ("Value", "value"):
                 if key in payload:
                     return payload[key]
@@ -151,11 +182,6 @@ class OZW672Client:
                 for key in ("Value", "value"):
                     if key in data:
                         return data[key]
-                error = data.get("Error") or data.get("error")
-                if error:
-                    raise OZW672ApiError(
-                        f"Read of datapoint {datapoint_id} failed: {error}"
-                    )
             elif isinstance(data, (int, float, str, bool)):
                 return data
         elif isinstance(payload, (int, float, str, bool)):
@@ -193,10 +219,9 @@ class OZW672Client:
             params["SessionId"] = self._session_id
             payload = await self._async_request(_WRITE_DATAPOINT, params)
 
-        if isinstance(payload, dict) and payload.get("Error"):
-            raise OZW672ApiError(
-                f"Write of datapoint {datapoint_id} failed: {payload['Error']}"
-            )
+        error = _extract_error(payload)
+        if error is not None:
+            raise OZW672ApiError(f"Write of datapoint {datapoint_id} failed: {error}")
         return payload
 
     async def _async_login(self) -> None:

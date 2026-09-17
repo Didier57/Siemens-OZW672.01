@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import OZW672ApiError, OZW672AuthError, OZW672Client, OZW672ConnectionError
 from .const import (
     CONF_CUSTOM_DATAPOINTS,
+    CONF_DISABLED_DATAPOINTS,
     CONF_SCAN_INTERVAL,
     DATAPOINTS,
     DEFAULT_SCAN_INTERVAL,
@@ -28,7 +29,16 @@ _LOGGER = logging.getLogger(__name__)
 
 def build_datapoints(entry: ConfigEntry) -> list[Datapoint]:
     """Return the datapoints to poll: the built-in catalog plus user defined ones."""
-    datapoints: list[Datapoint] = list(DATAPOINTS)
+    disabled_ids: set[int] = set()
+    for raw_id in entry.options.get(CONF_DISABLED_DATAPOINTS, []) or []:
+        try:
+            disabled_ids.add(int(raw_id))
+        except (TypeError, ValueError):
+            _LOGGER.warning("Ignoring disabled datapoint with invalid id %r", raw_id)
+
+    datapoints: list[Datapoint] = [
+        datapoint for datapoint in DATAPOINTS if datapoint.id not in disabled_ids
+    ]
     known_ids = {datapoint.id for datapoint in datapoints}
 
     custom: dict[str, Any] = entry.options.get(CONF_CUSTOM_DATAPOINTS, {}) or {}
@@ -92,6 +102,7 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.client = client
         self.datapoints = build_datapoints(entry)
         self.data: dict[str, Any] = {}
+        self._logged_failures: set[str] = set()
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch every known datapoint."""
@@ -115,14 +126,29 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
             except (OZW672ApiError, OZW672ConnectionError) as err:
                 failures += 1
                 data[datapoint.key] = None
-                _LOGGER.debug(
-                    "Could not read datapoint %s (%s): %s",
-                    datapoint.id,
-                    datapoint.name,
-                    err,
-                )
+                if datapoint.key not in self._logged_failures:
+                    self._logged_failures.add(datapoint.key)
+                    _LOGGER.warning(
+                        "Datapoint %s (%s) could not be read: %s",
+                        datapoint.id,
+                        datapoint.name,
+                        err,
+                    )
+                else:
+                    _LOGGER.debug(
+                        "Datapoint %s (%s) still not readable: %s",
+                        datapoint.id,
+                        datapoint.name,
+                        err,
+                    )
 
-        if failures == len(self.datapoints) and self.datapoints:
-            raise UpdateFailed("None of the OZW672 datapoints could be read")
+        if failures and failures == len(self.datapoints):
+            _LOGGER.error(
+                "None of the %s configured OZW672 datapoints could be read. "
+                "The built-in catalog matches the reference installation only: "
+                "declare the datapoint identifiers of your own plant in the "
+                "integration options and disable the ones that do not apply.",
+                failures,
+            )
 
         return data

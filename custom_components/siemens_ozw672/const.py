@@ -23,6 +23,7 @@ CONF_USE_HTTPS: Final = "use_https"
 CONF_VERIFY_SSL: Final = "verify_ssl"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_CUSTOM_DATAPOINTS: Final = "custom_datapoints"
+CONF_DISABLED_DATAPOINTS: Final = "disabled_datapoints"
 
 PLATFORM_SENSOR: Final = "sensor"
 PLATFORM_NUMBER: Final = "number"
