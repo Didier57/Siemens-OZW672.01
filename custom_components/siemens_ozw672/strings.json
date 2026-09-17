@@ -121,8 +121,8 @@
     },
     "value_type": {
       "options": {
-        "Numeric": "Numeric",
-        "Enumeration": "Enumeration"
+        "numeric": "Numeric",
+        "enumeration": "Enumeration"
       }
     }
   }

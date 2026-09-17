@@ -48,8 +48,11 @@ from .const import (
     PLATFORM_NUMBER,
     PLATFORM_SELECT,
     PLATFORM_SENSOR,
+    SELECTOR_VALUE_TYPE_ENUMERATION,
+    SELECTOR_VALUE_TYPE_NUMERIC,
     TYPE_ENUMERATION,
     TYPE_NUMERIC,
+    VALUE_TYPE_SELECTOR_TO_API,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -170,9 +173,14 @@ def _datapoint_schema() -> vol.Schema:
                     translation_key="platform",
                 )
             ),
-            vol.Required("value_type", default=TYPE_NUMERIC): SelectSelector(
+            vol.Required(
+                "value_type", default=SELECTOR_VALUE_TYPE_NUMERIC
+            ): SelectSelector(
                 SelectSelectorConfig(
-                    options=[TYPE_NUMERIC, TYPE_ENUMERATION],
+                    options=[
+                        SELECTOR_VALUE_TYPE_NUMERIC,
+                        SELECTOR_VALUE_TYPE_ENUMERATION,
+                    ],
                     mode=SelectSelectorMode.DROPDOWN,
                     translation_key="value_type",
                 )
@@ -357,12 +365,13 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
                 platform = user_input["platform"]
                 if enum_options and platform == PLATFORM_SENSOR:
                     platform = PLATFORM_SELECT
+                value_type = VALUE_TYPE_SELECTOR_TO_API.get(
+                    str(user_input["value_type"]), TYPE_NUMERIC
+                )
                 custom[datapoint_id] = {
                     "name": user_input["name"],
                     "platform": platform,
-                    "value_type": (
-                        TYPE_ENUMERATION if enum_options else user_input["value_type"]
-                    ),
+                    "value_type": (TYPE_ENUMERATION if enum_options else value_type),
                     "unit": user_input.get("unit") or None,
                     "device_class": user_input.get("device_class") or None,
                     "state_class": user_input.get("state_class") or None,
