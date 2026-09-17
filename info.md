@@ -1,55 +1,35 @@
 # Siemens OZW672.01
 
-Local Home Assistant integration for Siemens heating controllers exposed through the
-**OZW672** web server.
-
-## Highlights
-
-- 100% UI configuration, no YAML.
-- Plant device selection: pick the controller the OZW672 is wired to.
-- **Datapoints are identified by their topic**, because the OZW672 generates the
-  numeric ids for each installation; the ids are checked and updated on every reload.
-- Browse the plant **topic after topic** and pick the datapoints you want
-  (next / previous topic, finish whenever you like), during setup and from the
-  options.
-- Read-only datapoints become sensors (temperatures, pressure, modulation, energy,
-  operating hours, states, messages), writable numeric datapoints become numbers
-  with the range and step announced by the controller, writable enumerations become
-  selects pre-filled with the controller labels.
-- The kind of entity is decided from the description the OZW672 returns for each
-  datapoint (type, unit, range, resolution, enumeration values).
-- A datapoint can also be added by its numeric id, from the setup flow or the options.
-- Generic `siemens_ozw672.write_datapoint` service.
-- Automatic session renewal and re-authentication support.
-
-## Quick start
-
-1. Install through HACS (category *Integration*) and restart Home Assistant.
-2. **Settings → Devices & services → Add integration → Siemens OZW672**.
-3. Enter the IP address and the credentials of the OZW672 web account, select the
-   plant device, then pick your datapoints by topic.
-
-See the [README](https://github.com/Didier57/Siemens-OZW672.01#readme) for the full
-documentation and troubleshooting tips.
-
----
-
-# Siemens OZW672.01 (Français)
-
 Intégration locale Home Assistant pour les régulations de chauffage Siemens pilotées
 par le serveur web **OZW672**.
+
+## Points forts
 
 - Configuration entièrement via l'interface, sans YAML.
 - Choix de l'appareil de l'installation parmi ceux annoncés par l'OZW672.
 - **Les points de données sont identifiés par leur topic** : l'OZW672 génère les
-  identifiants pour chaque installation et les vérifie à chaque rechargement.
-- Parcours de l'installation **topic par topic** pour choisir librement ses
-  points de données (topic suivant / précédent, validation quand vous voulez),
-  à l'installation comme depuis les options.
-- Capteurs en lecture, entités `number` pour les consignes inscriptibles (plage et
-  pas annoncés par le régulateur), `select` pour les énumérations, pré-remplis avec
-  les libellés de l'appareil. Le type d'entité est déduit de la description que
-  l'OZW672 renvoie pour chaque point de données.
-- Ajout possible d'un point de données par son identifiant numérique, à
-  l'installation comme depuis les options.
+  identifiants numériques pour chaque installation ; ils sont vérifiés et mis à jour
+  à chaque rechargement.
+- Parcours de l'installation **topic par topic** pour choisir librement ses points de
+  données (topic suivant / précédent, validation quand vous voulez), à l'installation
+  comme depuis les options.
+- Capteurs en lecture (températures, pression, modulation, énergie, heures de
+  fonctionnement, états, messages), entités `number` pour les consignes numériques
+  inscriptibles avec la plage et le pas annoncés par le régulateur, entités `select`
+  pour les énumérations inscriptibles, pré-remplies avec les libellés de l'appareil.
+- Le type d'entité est déduit de la description que l'OZW672 renvoie pour chaque
+  point de données (type, unité, plage, résolution, valeurs d'énumération).
+- Ajout possible d'un point de données par son identifiant numérique, à l'installation
+  comme depuis les options.
 - Service générique `siemens_ozw672.write_datapoint`.
+- Renouvellement automatique de la session et prise en charge de la ré-authentification.
+
+## Démarrage rapide
+
+1. Installez via HACS (catégorie *Integration*) et redémarrez Home Assistant.
+2. **Paramètres → Appareils et services → Ajouter une intégration → Siemens OZW672**.
+3. Renseignez l'adresse IP et les identifiants du compte web de l'OZW672, choisissez
+   l'appareil de l'installation, puis sélectionnez vos points de données par topic.
+
+Consultez le [README](https://github.com/Didier57/Siemens-OZW672.01#readme) pour la
+documentation complète et le dépannage.

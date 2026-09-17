@@ -6,18 +6,18 @@
 [![Validate](https://github.com/Didier57/Siemens-OZW672.01/actions/workflows/validate.yml/badge.svg)](https://github.com/Didier57/Siemens-OZW672.01/actions/workflows/validate.yml)
 [![Hassfest](https://github.com/Didier57/Siemens-OZW672.01/actions/workflows/hassfest.yml/badge.svg)](https://github.com/Didier57/Siemens-OZW672.01/actions/workflows/hassfest.yml)
 
-Custom Home Assistant integration for Siemens heating controllers exposed through the **OZW672** (and compatible OZW67x) web server.
+Intégration personnalisée Home Assistant pour les régulations de chauffage Siemens exposées par le serveur web **OZW672** (et les OZW67x compatibles).
 
-The integration talks directly to the OZW672 JSON API over your local network: no cloud, no YAML, no `rest_command` boilerplate.
+L'intégration dialogue directement avec l'API JSON de l'OZW672 sur votre réseau local : pas de cloud, pas de YAML, pas de `rest_command` à maintenir.
 
-## Why datapoints are identified by topic
+## Pourquoi les points de données sont identifiés par leur topic
 
-The OZW672 does **not** ship a fixed datapoint numbering. It builds its menu tree from the controllers actually wired to it, and the identifiers of that tree are generated for each plant:
+L'OZW672 ne possède **pas** de numérotation fixe des points de données. Il construit son arborescence à partir des appareils réellement raccordés, et les identifiants de cette arborescence sont générés pour chaque installation :
 
-- two different installations almost never share the same ids;
-- on the same installation the ids can change after the OZW672 server parameters are refreshed or the device list is rebuilt.
+- deux installations différentes n'ont presque jamais les mêmes identifiants ;
+- sur une même installation, les identifiants peuvent changer après une réactualisation des paramètres du serveur OZW672 ou une reconstruction de la liste des appareils.
 
-The integration therefore identifies every datapoint by its **topic path** in the menu tree, for example:
+L'intégration identifie donc chaque point de données par son **chemin de topic** dans l'arborescence, par exemple :
 
 ```
 Diagnostic consommateurs/Pompe à chaleur/Modulation compresseur
@@ -25,131 +25,131 @@ Configuration/Circuit de chauffage 1/Consigne confort
 Etat/Etat du circuit de chauffage 1
 ```
 
-The numeric id is only a cached pointer kept in the config entry. On every setup — that is at each Home Assistant start, restart, reload and options change — the integration walks the OZW672 menu tree again, compares the topics with the stored ones and updates the ids before the first poll. Renamed/renumbered ids are logged, and a topic that disappeared from the plant is reported in the log so it can be removed.
+L'identifiant numérique n'est conservé que comme pointeur en cache dans l'entrée de configuration. À chaque mise en route — c'est-à-dire à chaque démarrage de Home Assistant, redémarrage, rechargement de l'intégration et modification des options — l'intégration reparcourt l'arborescence de l'OZW672, compare les topics avec ceux enregistrés et met les identifiants à jour avant la première scrutation. Un identifiant modifié est tracé dans le journal, et un topic qui a disparu de l'installation y est signalé pour pouvoir être supprimé.
 
-The same pass reads the **description** of every configured datapoint on the device and adapts the entity to what the controller announces now: a datapoint that became writable turns into a `number` (or a `select`), the range, the step, the unit and the enumeration values follow the description. A field you edited by hand in *Edit a datapoint* is never overwritten, and a value the device stops reporting is kept as it is. The changes are logged at info level.
+La même passe lit sur l'appareil la **description** de chaque point de données configuré et adapte l'entité à ce que le régulateur annonce à cet instant : un point de données devenu inscriptible se transforme en `number` (ou en `select`), la plage, le pas, l'unité et les valeurs d'énumération suivent la description. Un champ que vous avez modifié à la main dans *Modifier un point de données* n'est jamais écrasé, et une valeur que l'appareil cesse de fournir est conservée telle quelle. Les changements sont tracés dans le journal au niveau info.
 
-Two siblings sharing the same title (the OZW672 has a few, for example `Texte de défaut`) are suffixed `#2`, `#3` … in menu order, which makes the generated paths unique and reproducible. The numbering is computed on the whole sibling list, so a targeted walk finds exactly the same paths as a full one.
+Deux frères portant le même libellé (l'OZW672 en compte quelques-uns, par exemple `Texte de défaut`) sont suffixés `#2`, `#3` … dans l'ordre du menu, ce qui rend les chemins générés uniques et reproductibles. La numérotation est calculée sur la liste complète des frères, afin qu'un parcours ciblé retrouve exactement les mêmes chemins qu'un parcours complet.
 
-The topic is stored as a **list of segments** rather than a joined string, because a title of the controller may itself contain a slash (`Heating/Cooling circuit 1`, `Jour/heure`, `URL / IP address`, …). Splitting a joined path back into segments would produce wrong topics for those branches, so the joined text is only used for display.
+Le topic est mémorisé sous forme de **liste de segments** plutôt que de texte assemblé, car un libellé du régulateur peut lui-même contenir une barre oblique (`Heating/Cooling circuit 1`, `Jour/heure`, `URL / IP address`, …). Redécouper un chemin assemblé donnerait des topics erronés pour ces branches : la version texte n'est donc utilisée que pour l'affichage.
 
-## Features
+## Fonctionnalités
 
-- **UI configuration** — set up everything from the Home Assistant interface (host, credentials, HTTPS).
-- **Plant device selection** — the OZW672 lists the controllers it is wired to; pick the one the entry is for.
-- **Choose your own datapoints** — the plant is browsed **topic after topic**: tick what you want on each screen, move to the next topic, come back when needed, and finish whenever you like. Works during setup and later from the options.
-- **Topic based identity** — ids are re-resolved against the topics at every reload, so they survive a regeneration of the OZW672 identifiers.
-- **Entities adapted on every reload** — the description of each configured datapoint is read again on the device, so the entity kind, the range, the step, the unit and the enumeration values follow the controller.
-- **Read datapoints as sensors** — temperatures, pressures, modulation, energy, operating hours, states and messages.
-- **Write datapoints as numbers** — writable numeric datapoints become `number` entities (unit, device class, range and step are detected from the device and can be adjusted).
-- **Enumerations** — turn an enumeration datapoint into a `select` entity pre-filled with the labels of the controller.
-- **Entity kind detected from the device** — the description of each datapoint (`type`, `unit`, `Min`/`Max`/`Resolution`, enumeration values) decides whether it becomes a read-only sensor, a number with the range and step of the controller, or a select.
-- **Add a datapoint by its id** — paste a numeric identifier of the menutree and the integration reads its description on the device.
-- **Generic service** — `siemens_ozw672.write_datapoint` writes to any datapoint.
-- **Automatic re-login** — the session id is refreshed whenever the OZW672 invalidates it.
-- **Re-authentication** — Home Assistant asks for new credentials if they change.
+- **Configuration par l'interface** — tout se règle depuis Home Assistant (adresse, identifiants, HTTPS).
+- **Choix de l'appareil de l'installation** — l'OZW672 annonce les régulateurs qui lui sont raccordés ; vous choisissez celui auquel l'entrée correspond.
+- **Choix libre des points de données** — l'installation est parcourue **topic par topic** : cochez ce que vous voulez sur chaque écran, passez au topic suivant, revenez en arrière si besoin et terminez quand vous le souhaitez. Fonctionne à l'installation comme plus tard depuis les options.
+- **Identité par topic** — les identifiants sont recalculés depuis les topics à chaque rechargement : ils survivent donc à une régénération des identifiants de l'OZW672.
+- **Entités adaptées à chaque rechargement** — la description de chaque point de données configuré est relue sur l'appareil : le type d'entité, la plage, le pas, l'unité et les valeurs d'énumération suivent le régulateur.
+- **Lecture des points de données en capteurs** — températures, pressions, modulation, énergie, heures de fonctionnement, états et messages.
+- **Écriture des points de données en nombres** — les points de données numériques inscriptibles deviennent des entités `number` (unité, classe, plage et pas détectés sur l'appareil, et modifiables).
+- **Énumérations** — un point de données d'énumération peut devenir une entité `select` pré-remplie avec les libellés du régulateur.
+- **Type d'entité déduit de l'appareil** — la description de chaque point de données (`type`, `unit`, `Min`/`Max`/`Resolution`, valeurs d'énumération) décide s'il devient un capteur en lecture seule, un nombre avec la plage et le pas du régulateur, ou un select.
+- **Ajout d'un point de données par son identifiant** — collez l'identifiant numérique d'un point de l'arborescence : l'intégration lit sa description sur l'appareil.
+- **Service générique** — `siemens_ozw672.write_datapoint` écrit dans n'importe quel point de données.
+- **Reconnexion automatique** — l'identifiant de session est renouvelé dès que l'OZW672 l'invalide.
+- **Ré-authentification** — Home Assistant redemande les identifiants s'ils changent.
 
-## Requirements
+## Prérequis
 
-- A Siemens OZW672 (or compatible OZW67x) reachable on your local network, with the web server API enabled.
-- A user account on the device. Create a **dedicated read/write user** if possible.
-- Home Assistant 2024.6 or newer.
+- Un Siemens OZW672 (ou un OZW67x compatible) accessible sur votre réseau local, avec l'API du serveur web activée.
+- Un compte utilisateur sur l'appareil. Créez si possible un **compte dédié en lecture/écriture**.
+- Home Assistant 2024.6 ou plus récent.
 
 ## Installation
 
-### HACS (recommended)
+### HACS (recommandé)
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Didier57&repository=Siemens-OZW672.01&category=integration)
+[![Ouvrir votre instance Home Assistant et ajouter un dépôt au Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Didier57&repository=Siemens-OZW672.01&category=integration)
 
-1. Open HACS → **Integrations**.
-2. Click the three dots (top right) → **Custom repositories**.
-3. Add `https://github.com/Didier57/Siemens-OZW672.01` with the category **Integration**.
-4. Search for **Siemens OZW672** in HACS and install it.
-5. Restart Home Assistant.
+1. Ouvrez HACS → **Intégrations**.
+2. Cliquez sur les trois points (en haut à droite) → **Dépôts personnalisés**.
+3. Ajoutez `https://github.com/Didier57/Siemens-OZW672.01` avec la catégorie **Integration**.
+4. Recherchez **Siemens OZW672** dans HACS et installez-le.
+5. Redémarrez Home Assistant.
 
-### Manual
+### Manuellement
 
-Copy the `custom_components/siemens_ozw672` folder into your Home Assistant `config/custom_components/` directory and restart Home Assistant.
+Copiez le dossier `custom_components/siemens_ozw672` dans le répertoire `config/custom_components/` de Home Assistant, puis redémarrez Home Assistant.
 
 ## Configuration
 
-1. Go to **Settings → Devices & services → Add integration**.
-2. Search for **Siemens OZW672**.
-3. Fill in:
+1. Allez dans **Paramètres → Appareils et services → Ajouter une intégration**.
+2. Recherchez **Siemens OZW672**.
+3. Renseignez :
 
-| Field | Description |
+| Champ | Description |
 | --- | --- |
-| Host | IP address or hostname of the OZW672. A pasted `http://…` URL also works. |
-| Port | Optional. Leave empty for the default port (80, or 443 with HTTPS). |
-| Username / Password | Credentials of the OZW672 web account. |
-| Use HTTPS | Enable if the web server runs on HTTPS. |
-| Verify the SSL certificate | Leave disabled for the usual self-signed OZW672 certificate. |
+| Hôte | Adresse IP ou nom d'hôte de l'OZW672. Une URL `http://…` collée fonctionne aussi. |
+| Port | Facultatif. Laissez vide pour le port par défaut (80, ou 443 en HTTPS). |
+| Utilisateur / Mot de passe | Identifiants du compte web de l'OZW672. |
+| Utiliser HTTPS | À activer si le serveur web tourne en HTTPS. |
+| Vérifier le certificat SSL | À laisser désactivé pour le certificat auto-signé habituel de l'OZW672. |
 
-The credentials are validated immediately by performing a real login against the device.
+Les identifiants sont validés immédiatement par une véritable connexion à l'appareil.
 
-4. **Select the plant device.** The OZW672 reports the controllers it is wired to (for example `1 RVS21.831F/127` for the heat pump controller on bus address 1, plus the gateway itself). The integration then reads the whole menu tree of that device.
-5. **Pick the datapoints, topic after topic.** The plant is browsed one topic at a time (for example `Configuration/Circuit de chauffage 1`): each screen lists the datapoints of that topic, tick the ones you want and continue. Tick again what you already have — the datapoints you picked earlier stay ticked when you come back — and use **Previous topic** to review. You can finish at any moment; everything already ticked is kept.
+4. **Sélectionnez l'appareil de l'installation.** L'OZW672 annonce les régulateurs qui lui sont raccordés (par exemple `1 RVS21.831F/127` pour le régulateur de pompe à chaleur à l'adresse de bus 1, plus la passerelle elle-même). L'intégration lit ensuite toute l'arborescence de cet appareil.
+5. **Choisissez les points de données, topic après topic.** L'installation est parcourue un topic à la fois (par exemple `Configuration/Circuit de chauffage 1`) : chaque écran liste les points de données de ce topic, cochez ceux qui vous intéressent et continuez. Recochez ce que vous avez déjà : les points choisis précédemment restent cochés quand vous revenez, et **Topic précédent** permet de revoir. Vous pouvez terminer à tout moment ; tout ce qui est coché est conservé.
 
-The name, the entity type, the unit and the guessed device class are filled in automatically. The number entity is created for writable numeric datapoints; everything else becomes a sensor. Read-only numeric datapoints with a unit get a matching device class and a `measurement`/`total_increasing` state class.
+Le nom, le type d'entité, l'unité et la classe d'appareil devinée sont remplis automatiquement. L'entité `number` est créée pour les points de données numériques inscriptibles ; tout le reste devient un capteur. Les points numériques en lecture seule qui ont une unité reçoivent une classe d'appareil correspondante et une classe d'état `measurement`/`total_increasing`.
 
-6. Optional: **Add a datapoint by its id**. Paste the numeric identifier of any datapoint of the menutree — the integration reads its description from the device and adds it.
+6. Facultatif : **Ajouter un point de données par son identifiant**. Collez l'identifiant numérique de n'importe quel point de l'arborescence — l'intégration lit sa description sur l'appareil et l'ajoute.
 
-### How the entity type is decided
+### Comment le type d'entité est décidé
 
-The integration asks the OZW672 for the **description** of each datapoint (`datapoint_desc.json`): it reports the type, the unit, the allowed range, the resolution and, for an enumeration or a radio button, the complete list of the values the controller accepts with the labels it uses. From that:
+L'intégration demande à l'OZW672 la **description** de chaque point de données (`datapoint_desc.json`) : elle fournit le type, l'unité, la plage autorisée, la résolution et, pour une énumération ou un bouton radio, la liste complète des valeurs acceptées par le régulateur avec ses propres libellés. À partir de là :
 
-- a **writable numeric** datapoint becomes a `number`, with the range and the step announced by the controller (for example 44 – 65 °C, step 1, for a DHW setpoint);
-- a **writable enumeration or radio button** becomes a `select` pre-filled with the controller labels;
-- everything else — read-only measurements, states, fault messages, operating hours, time-of-day counters — becomes a **sensor**.
+- un point de données **numérique inscriptible** devient un `number`, avec la plage et le pas annoncés par le régulateur (par exemple 44 – 65 °C, pas 1, pour une consigne ECS) ;
+- une **énumération ou un bouton radio inscriptible** devient un `select` pré-rempli avec les libellés du régulateur ;
+- tout le reste — mesures en lecture seule, états, messages de défaut, heures de fonctionnement, compteurs horaires — devient un **capteur**.
 
-Nothing is imposed: the entity type, the unit, the classes, the range and the step stay editable in *Configure → Edit a datapoint*.
+Rien n'est imposé : le type d'entité, l'unité, les classes, la plage et le pas restent modifiables dans *Configurer → Modifier un point de données*.
 
-## Entities
+## Entités
 
-Entity names follow the datapoint name; when two selected datapoints of the same plant share a name, the parent topic is prepended to keep the names readable. Entities are grouped under a single device named after the selected controller, with the gateway serial number and firmware version as device information.
+Les noms des entités suivent le nom du point de données ; lorsque deux points de données sélectionnés de la même installation portent le même nom, le topic parent est ajouté devant pour garder des noms lisibles. Les entités sont regroupées sous un seul appareil nommé d'après le régulateur sélectionné, avec le numéro de série et la version de firmware de la passerelle comme informations d'appareil.
 
-| Kind | Created for | Notes |
+| Type | Créé pour | Remarques |
 | --- | --- | --- |
-| `sensor` | every selected datapoint that is not writable | numeric values with a unit are converted to numbers, enumerations/radio buttons become text sensors |
-| `number` | writable numeric datapoints (`WriteAccess` true) | range and step come from the device description, and are editable |
-| `select` | writable enumerations and radio buttons | options come from the device description |
-| `binary_sensor` | always | *Connectivity*, on when the last poll returned at least one value; disabled by default |
+| `sensor` | chaque point de données sélectionné non inscriptible | les valeurs numériques avec unité sont converties en nombres, les énumérations et boutons radio deviennent des capteurs texte |
+| `number` | les points de données numériques inscriptibles (`WriteAccess` vrai) | la plage et le pas viennent de la description de l'appareil et sont modifiables |
+| `select` | les énumérations et boutons radio inscriptibles | les options viennent de la description de l'appareil |
+| `binary_sensor` | toujours | *Connectivité*, activée quand la dernière scrutation a renvoyé au moins une valeur ; désactivée par défaut |
 
-Datapoints that are configured but not wired on your plant (`----`, `---`) are reported as unknown instead of being shown as a value.
+Les points de données configurés mais non câblés sur votre installation (`----`, `---`) sont signalés comme inconnus au lieu d'être affichés comme une valeur.
 
 ## Options
 
-Go to **Settings → Devices & services → Siemens OZW672 → Configure**:
+Allez dans **Paramètres → Appareils et services → Siemens OZW672 → Configurer** :
 
-- **Polling settings** — change the scan interval (10 – 3600 s).
-- **Add datapoints** — the topics of the plant are browsed one after the other. Tick the datapoints to add on each screen: they are kept as you go, **Previous topic** lets you review, and **Save** stores everything picked so far. Re-running it later lets you add or remove datapoints of the topics you visit; the datapoints you already configured keep their settings.
-- **Add a datapoint by its id** — paste the numeric identifier of any datapoint of the menutree. Its description is read on the device and decides the kind of entity created; if the identifier belongs to the menu tree, its topic is stored too so it is re-resolved on the next reloads.
-- **Remove datapoints** — tick the datapoints to drop from the entry.
-- **Edit a datapoint** — adjust the name, the entity type (sensor/number/select), the value type (`Numeric`/`Enumeration`), the enumeration options, the unit, the device class, the state class and the min/max/step of a number.
-- **Save the selection to a file** — the selection is shown as JSON, with the identifier and the name of every datapoint; copy it and keep it in a file of your choice.
-- **Restore a selection from a file** — paste a file saved earlier to replace the selection in one go; every datapoint is described again by the controller.
+- **Réglages de scrutation** — modifie l'intervalle de scrutation (10 – 3600 s).
+- **Ajouter des points de données** — les topics de l'installation sont parcourus les uns après les autres. Cochez les points de données à ajouter sur chaque écran : ils sont conservés au fur et à mesure, **Topic précédent** permet de revoir, et **Enregistrer** mémorise tout ce qui a été coché. Relancer l'opération plus tard permet d'ajouter ou de retirer des points de données des topics visités ; les points déjà configurés conservent leurs réglages.
+- **Ajouter un datapoint par son id** — collez l'identifiant numérique de n'importe quel point de données de l'arborescence. Sa description est lue sur l'appareil et détermine le type d'entité créé ; si l'identifiant appartient à l'arborescence, son topic est également mémorisé pour être recalculé aux rechargements suivants.
+- **Supprimer des points de données** — cochez les points de données à retirer de l'entrée.
+- **Modifier un point de données** — ajuste le nom, le type d'entité (sensor/number/select), le type de valeur (`Numeric`/`Enumeration`), les options d'énumération, l'unité, la classe d'appareil, la classe d'état et le min/max/pas d'un nombre.
+- **Enregistrer la sélection dans un fichier** — la sélection est affichée au format JSON, avec l'identifiant et le nom de chaque point de données ; copiez-la et conservez-la dans un fichier de votre choix.
+- **Restaurer une sélection depuis un fichier** — collez un fichier enregistré précédemment pour remplacer la sélection d'un seul coup ; chaque point de données est redécrit par le régulateur.
 
-Every options change reloads the entry, which re-resolves the ids from the topics.
+Chaque modification des options recharge l'entrée, ce qui recalcule les identifiants à partir des topics.
 
-### Saving and restoring your selection
+### Sauvegarder et restaurer votre sélection
 
-Selecting the datapoints again after a clean installation of Home Assistant is tedious, so the selection can be exported:
+Resélectionner les points de données après une installation complète de Home Assistant est fastidieux, c'est pourquoi la sélection peut être exportée :
 
-1. **Configure → Save the selection to a file**: the selection is displayed as an indented JSON document holding the identifier and the name of each datapoint. Copy the whole text and save it as, for example, `siemens_ozw672_datapoints.json`.
-2. On a fresh install, add the integration again (host and credentials), then **Configure → Restore a selection from a file** and paste the content. The selection is replaced by the one of the file and takes effect on the spot.
+1. **Configurer → Enregistrer la sélection dans un fichier** : la sélection s'affiche sous forme de document JSON indenté contenant l'identifiant et le nom de chaque point de données. Copiez tout le texte et enregistrez-le, par exemple, sous `siemens_ozw672_datapoints.json`.
+2. Sur une installation neuve, ajoutez à nouveau l'intégration (adresse et identifiants), puis **Configurer → Restaurer une sélection depuis un fichier** et collez le contenu. La sélection est remplacée par celle du fichier et prend effet immédiatement.
 
-Connection details are deliberately **not** part of the file — no password is ever written in plain text. Only the identifiers and the names are stored: every datapoint is described again by the OZW672 when the file is restored, so its type, unit, range and enumeration values follow what the controller announces right now, and a datapoint becomes a sensor or an entity that can be changed accordingly. The identifiers are also resolved again from the topics when the entry reloads, so a file saved on one OZW672 can be restored on another one wired the same way. If an identifier or a topic no longer exists on the new plant, it is reported in the log and the other datapoints keep working.
+Les informations de connexion ne font volontairement **pas** partie du fichier — aucun mot de passe n'est jamais écrit en clair. Seuls les identifiants et les noms sont enregistrés : chaque point de données est redécrit par l'OZW672 à la restauration, donc son type, son unité, sa plage et ses valeurs d'énumération suivent ce que le régulateur annonce à ce moment-là, et il devient un capteur ou une entité modifiable en conséquence. Les identifiants sont également recalculés depuis les topics au rechargement de l'entrée, si bien qu'un fichier enregistré sur un OZW672 peut être restauré sur un autre câblé de la même façon. Si un identifiant ou un topic n'existe plus sur la nouvelle installation, il est signalé dans le journal et les autres points de données continuent de fonctionner.
 
 ## Services
 
 ### `siemens_ozw672.write_datapoint`
 
-| Field | Required | Description |
+| Champ | Obligatoire | Description |
 | --- | --- | --- |
-| `datapoint_id` | yes | Datapoint id in the OZW672 menutree. |
-| `value` | yes | Value to write. |
-| `value_type` | no | `Numeric` (default) or `Enumeration`. |
-| `entry_id` | no | Target config entry, only needed with several OZW672 devices. |
+| `datapoint_id` | oui | Identifiant du point de données dans l'arborescence de l'OZW672. |
+| `value` | oui | Valeur à écrire. |
+| `value_type` | non | `Numeric` (par défaut) ou `Enumeration`. |
+| `entry_id` | non | Entrée de configuration cible, utile seulement avec plusieurs appareils OZW672. |
 
 ```yaml
 action: siemens_ozw672.write_datapoint
@@ -158,9 +158,9 @@ data:
   value: 52
 ```
 
-## Migration from `rest` / `rest_command`
+## Migration depuis `rest` / `rest_command`
 
-The entities replace the old YAML approach: instead of `input_number` + `automation` + `rest_command`, set a value directly on the number entity.
+Les entités remplacent l'ancienne approche YAML : au lieu d'un `input_number` + `automation` + `rest_command`, écrivez directement la valeur sur l'entité `number`.
 
 ```yaml
 action: number.set_value
@@ -170,18 +170,18 @@ data:
   value: 52
 ```
 
-## Troubleshooting
+## Dépannage
 
-| Symptom | Fix |
+| Symptôme | Solution |
 | --- | --- |
-| `invalid_auth` | Check the username/password; note that the OZW672 locks accounts after repeated failures. |
-| `cannot_connect` | Verify the IP address, that the web server is enabled, and the port (80/443). |
-| One entity stays `unknown` | The datapoint is configured but not wired on the plant (`----`), or it was removed from the menu tree. Check the log, then remove or edit it in the options. |
-| Every entity stays `unknown` | Check the log: the topic could not be resolved any more. Re-select the datapoints in **Configure → Add datapoints**. |
-| Setting up takes a few seconds | The integration reads the menu tree of the plant, one request per topic node (about 120 for the reference installation). This happens only during setup and at reload. |
-| Values never change | Increase the scan interval or check the OZW672 web UI load; the device has limited concurrent sessions. |
+| `invalid_auth` | Vérifiez l'utilisateur et le mot de passe ; notez que l'OZW672 bloque les comptes après plusieurs échecs. |
+| `cannot_connect` | Vérifiez l'adresse IP, que le serveur web est activé, et le port (80/443). |
+| Une entité reste `unknown` | Le point de données est configuré mais non câblé sur l'installation (`----`), ou il a été retiré de l'arborescence. Consultez le journal, puis supprimez-le ou modifiez-le dans les options. |
+| Toutes les entités restent `unknown` | Consultez le journal : le topic n'a peut-être plus pu être résolu. Resélectionnez les points de données dans **Configurer → Ajouter des points de données**. |
+| L'installation prend quelques secondes | L'intégration lit l'arborescence de l'installation, une requête par nœud de topic (environ 120 pour l'installation de référence). Cela n'arrive qu'à l'installation et au rechargement. |
+| Les valeurs ne changent jamais | Augmentez l'intervalle de scrutation ou vérifiez la charge du serveur web de l'OZW672 ; l'appareil n'accepte qu'un nombre limité de sessions simultanées. |
 
-Enable debug logging to inspect the API traffic:
+Activez la journalisation de débogage pour inspecter le trafic de l'API :
 
 ```yaml
 logger:
@@ -189,33 +189,14 @@ logger:
     custom_components.siemens_ozw672: debug
 ```
 
-## Credits
+## Crédits
 
-Inspired by [vencakratky/API-OZW672--HomeAssistant](https://github.com/vencakratky/API-OZW672--HomeAssistant), which documents the OZW672 web API and the original YAML/`rest_command` approach.
+Inspiré de [vencakratky/API-OZW672--HomeAssistant](https://github.com/vencakratky/API-OZW672--HomeAssistant), qui documente l'API web de l'OZW672 et l'approche YAML/`rest_command` d'origine.
 
-## Disclaimer
+## Avertissement
 
-Not affiliated with or endorsed by Siemens. Heating equipment control is your responsibility — use at your own risk.
+Non affilié à Siemens et non approuvé par Siemens. Le pilotage d'une installation de chauffage relève de votre responsabilité — à utiliser à vos propres risques.
 
-## License
+## Licence
 
 [MIT](LICENSE)
-
----
-
-## Version française
-
-Intégration Home Assistant pour les régulations de chauffage Siemens exposées par le serveur web **OZW672** (et OZW67x compatibles).
-
-### Pourquoi les points de données sont identifiés par leur topic
-
-L'OZW672 ne possède pas de numérotation fixe : il construit son arborescence à partir des appareils réellement raccordés, et **les identifiants sont générés pour chaque installation**. Ils peuvent même changer sur une même installation lorsque la liste des appareils du serveur est réactualisée. L'intégration identifie donc chaque point de données par son **chemin de topic** (par exemple `Diagnostic consommateurs/Pompe à chaleur/Modulation compresseur`) et ne conserve l'identifiant numérique que comme pointeur. À chaque démarrage, rechargement ou modification des options, l'intégration relit l'arborescence, compare les topics et met les identifiants à jour. Les identifiants modifiés sont tracés dans le journal, et un topic disparu y est signalé. Le chemin est mémorisé sous forme de **liste de segments**, car un libellé du régulateur peut lui-même contenir une barre oblique (`Heating/Cooling circuit 1`, `Jour/heure`, …) : la version texte n'est utilisée que pour l'affichage.
-
-- **Installation** : HACS → Intégrations → dépôts personnalisés → `https://github.com/Didier57/Siemens-OZW672.01` (catégorie *Integration*), puis redémarrer Home Assistant.
-- **Configuration** : Paramètres → Appareils et services → Ajouter une intégration → *Siemens OZW672*. Renseignez l'adresse IP, l'utilisateur et le mot de passe, puis choisissez **l'appareil de l'installation** parmi ceux que l'OZW672 annonce (par exemple `1 RVS21.831F/127`).
-- **Choix des points de données** : l'installation est parcourue **topic par topic**. Chaque écran liste les points de données d'un topic : cochez ceux qui vous intéressent, passez au topic suivant avec **Topic suivant**, revenez avec **Topic précédent**, et terminez quand vous voulez — tout ce qui est coché est conservé. Les points inscriptibles deviennent des entités `number`, les énumérations peuvent devenir des `select` en renseignant leur liste d'options, tout le reste devient des capteurs.
-- **Type d'entité déduit de la description de l'appareil** : pour chaque point de données, l'intégration lit sa description sur l'OZW672 (`datapoint_desc.json`), qui fournit le type, l'unité, la plage de valeurs autorisée, la résolution et, pour une énumération ou un bouton radio, la liste complète des valeurs avec les libellés du régulateur. Un point de données numérique inscriptible devient un `number` avec la plage et le pas annoncés par l'appareil, une énumération inscriptible devient un `select` pré-rempli, et tout le reste (mesures, états, messages, compteurs d'heures) reste un capteur en lecture seule. Tout reste modifiable dans *Modifier un point de données*.
-- **Ajout manuel par identifiant** : *Ajouter un datapoint par son id* permet de saisir directement l'identifiant numérique d'un point de données de l'arborescence ; sa description est lue sur l'appareil et détermine le type d'entité créé.
-- **Options** : *Réglages de scrutation* (intervalle de 10 à 3600 s), *Ajouter des points de données*, *Ajouter un datapoint par son id*, *Supprimer des points de données*, *Modifier un point de données* (nom, type, unité, classes, min/max/pas, options d'énumération), *Enregistrer la sélection dans un fichier* et *Restaurer une sélection depuis un fichier*.
-- **Sauvegarde de la sélection** : *Enregistrer la sélection dans un fichier* affiche toute votre sélection au format JSON (l'identifiant et le nom de chaque point de données) : copiez le texte et conservez-le dans un fichier. Après une réinstallation complète, recréez l'intégration (adresse et identifiants) puis *Restaurer une sélection depuis un fichier* en collant le contenu : vos points de données sont repris tels quels, sans avoir à les resélectionner. Les informations de connexion ne figurent **pas** dans le fichier (aucun mot de passe n'est écrit en clair). Seuls les identifiants et les noms y sont enregistrés : chaque point de données est redécrit par l'OZW672 à la restauration, son type, son unité, sa plage et ses valeurs d'énumération suivent donc ce que le régulateur annonce à ce moment-là, et il devient un capteur ou une entité modifiable en conséquence. Les identifiants sont également recalculés depuis les topics au rechargement, si bien qu'une sauvegarde faite sur un OZW672 peut être restaurée sur un autre câblé de la même façon ; un identifiant ou un topic disparu est signalé dans le journal sans casser le reste.
-Crédits à [vencakratky](https://github.com/vencakratky/API-OZW672--HomeAssistant) pour la documentation de l'API.
