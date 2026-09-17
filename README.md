@@ -37,7 +37,9 @@ Two siblings sharing the same title (the OZW672 has a few, for example `Texte de
 - **Topic based identity** — ids are re-resolved against the topics at every reload, so they survive a regeneration of the OZW672 identifiers.
 - **Read datapoints as sensors** — temperatures, pressures, modulation, energy, operating hours, states and messages.
 - **Write datapoints as numbers** — writable numeric datapoints become `number` entities (unit, device class, range and step are detected from the device and can be adjusted).
-- **Enumerations** — turn an enumeration datapoint into a `select` entity by giving its option list.
+- **Enumerations** — turn an enumeration datapoint into a `select` entity pre-filled with the labels of the controller.
+- **Entity kind detected from the device** — the description of each datapoint (`type`, `unit`, `Min`/`Max`/`Resolution`, enumeration values) decides whether it becomes a read-only sensor, a number with the range and step of the controller, or a select.
+- **Add a datapoint by its id** — paste a numeric identifier of the menutree and the integration reads its description on the device.
 - **Generic service** — `siemens_ozw672.write_datapoint` writes to any datapoint.
 - **Automatic re-login** — the session id is refreshed whenever the OZW672 invalidates it.
 - **Re-authentication** — Home Assistant asks for new credentials if they change.
@@ -85,6 +87,18 @@ The credentials are validated immediately by performing a real login against the
 
 The name, the entity type, the unit and the guessed device class are filled in automatically. The number entity is created for writable numeric datapoints; everything else becomes a sensor. Read-only numeric datapoints with a unit get a matching device class and a `measurement`/`total_increasing` state class.
 
+6. Optional: **Add a datapoint by its id**. Paste the numeric identifier of any datapoint of the menutree — the integration reads its description from the device and adds it.
+
+### How the entity type is decided
+
+The integration asks the OZW672 for the **description** of each datapoint (`datapoint_desc.json`): it reports the type, the unit, the allowed range, the resolution and, for an enumeration or a radio button, the complete list of the values the controller accepts with the labels it uses. From that:
+
+- a **writable numeric** datapoint becomes a `number`, with the range and the step announced by the controller (for example 44 – 65 °C, step 1, for a DHW setpoint);
+- a **writable enumeration or radio button** becomes a `select` pre-filled with the controller labels;
+- everything else — read-only measurements, states, fault messages, operating hours, time-of-day counters — becomes a **sensor**.
+
+Nothing is imposed: the entity type, the unit, the classes, the range and the step stay editable in *Configure → Edit a datapoint*.
+
 ## Entities
 
 Entity names follow the datapoint name; when two selected datapoints of the same plant share a name, the parent topic is prepended to keep the names readable. Entities are grouped under a single device named after the selected controller, with the gateway serial number and firmware version as device information.
@@ -92,8 +106,8 @@ Entity names follow the datapoint name; when two selected datapoints of the same
 | Kind | Created for | Notes |
 | --- | --- | --- |
 | `sensor` | every selected datapoint that is not writable | numeric values with a unit are converted to numbers, enumerations/radio buttons become text sensors |
-| `number` | writable numeric datapoints (`WriteAccess` true) | range and step default to 0 – 100 / 0.5 and are editable |
-| `select` | datapoints for which you entered an enumeration option list | options are written as `1=Label, 2=Label` |
+| `number` | writable numeric datapoints (`WriteAccess` true) | range and step come from the device description, and are editable |
+| `select` | writable enumerations and radio buttons | options come from the device description |
 | `binary_sensor` | always | *Connectivity*, on when the last poll returned at least one value; disabled by default |
 
 Datapoints that are configured but not wired on your plant (`----`, `---`) are reported as unknown instead of being shown as a value.
@@ -104,6 +118,7 @@ Go to **Settings → Devices & services → Siemens OZW672 → Configure**:
 
 - **Polling settings** — change the scan interval (10 – 3600 s).
 - **Add datapoints** — the topics of the plant are browsed one after the other. Tick the datapoints to add on each screen: they are kept as you go, **Previous topic** lets you review, and **Save** stores everything picked so far. Re-running it later lets you add or remove datapoints of the topics you visit; the datapoints you already configured keep their settings.
+- **Add a datapoint by its id** — paste the numeric identifier of any datapoint of the menutree. Its description is read on the device and decides the kind of entity created; if the identifier belongs to the menu tree, its topic is stored too so it is re-resolved on the next reloads.
 - **Remove datapoints** — tick the datapoints to drop from the entry.
 - **Edit a datapoint** — adjust the name, the entity type (sensor/number/select), the value type (`Numeric`/`Enumeration`), the enumeration options, the unit, the device class, the state class and the min/max/step of a number.
 
@@ -183,5 +198,7 @@ L'OZW672 ne possède pas de numérotation fixe : il construit son arborescence �
 - **Installation** : HACS → Intégrations → dépôts personnalisés → `https://github.com/Didier57/Siemens-OZW672.01` (catégorie *Integration*), puis redémarrer Home Assistant.
 - **Configuration** : Paramètres → Appareils et services → Ajouter une intégration → *Siemens OZW672*. Renseignez l'adresse IP, l'utilisateur et le mot de passe, puis choisissez **l'appareil de l'installation** parmi ceux que l'OZW672 annonce (par exemple `1 RVS21.831F/127`).
 - **Choix des points de données** : l'installation est parcourue **topic par topic**. Chaque écran liste les points de données d'un topic : cochez ceux qui vous intéressent, passez au topic suivant avec **Topic suivant**, revenez avec **Topic précédent**, et terminez quand vous voulez — tout ce qui est coché est conservé. Les points inscriptibles deviennent des entités `number`, les énumérations peuvent devenir des `select` en renseignant leur liste d'options, tout le reste devient des capteurs.
-- **Options** : *Réglages de scrutation* (intervalle de 10 à 3600 s), *Ajouter des points de données*, *Supprimer des points de données* et *Modifier un point de données* (nom, type, unité, classes, min/max/pas, options d'énumération).
+- **Type d'entité déduit de la description de l'appareil** : pour chaque point de données, l'intégration lit sa description sur l'OZW672 (`datapoint_desc.json`), qui fournit le type, l'unité, la plage de valeurs autorisée, la résolution et, pour une énumération ou un bouton radio, la liste complète des valeurs avec les libellés du régulateur. Un point de données numérique inscriptible devient un `number` avec la plage et le pas annoncés par l'appareil, une énumération inscriptible devient un `select` pré-rempli, et tout le reste (mesures, états, messages, compteurs d'heures) reste un capteur en lecture seule. Tout reste modifiable dans *Modifier un point de données*.
+- **Ajout manuel par identifiant** : *Ajouter un datapoint par son id* permet de saisir directement l'identifiant numérique d'un point de données de l'arborescence ; sa description est lue sur l'appareil et détermine le type d'entité créé.
+- **Options** : *Réglages de scrutation* (intervalle de 10 à 3600 s), *Ajouter des points de données*, *Ajouter un datapoint par son id*, *Supprimer des points de données* et *Modifier un point de données* (nom, type, unité, classes, min/max/pas, options d'énumération).
 Crédits à [vencakratky](https://github.com/vencakratky/API-OZW672--HomeAssistant) pour la documentation de l'API.

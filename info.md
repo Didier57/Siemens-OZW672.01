@@ -13,8 +13,12 @@ Local Home Assistant integration for Siemens heating controllers exposed through
   (next / previous topic, finish whenever you like), during setup and from the
   options.
 - Read-only datapoints become sensors (temperatures, pressure, modulation, energy,
-  operating hours, states, messages), writable numeric datapoints become numbers,
-  enumerations can become selects.
+  operating hours, states, messages), writable numeric datapoints become numbers
+  with the range and step announced by the controller, writable enumerations become
+  selects pre-filled with the controller labels.
+- The kind of entity is decided from the description the OZW672 returns for each
+  datapoint (type, unit, range, resolution, enumeration values).
+- A datapoint can also be added by its numeric id, from the setup flow or the options.
 - Generic `siemens_ozw672.write_datapoint` service.
 - Automatic session renewal and re-authentication support.
 
@@ -42,6 +46,10 @@ par le serveur web **OZW672**.
 - Parcours de l'installation **topic par topic** pour choisir librement ses
   points de données (topic suivant / précédent, validation quand vous voulez),
   à l'installation comme depuis les options.
-- Capteurs en lecture, entités `number` pour les consignes inscriptibles, `select`
-  pour les énumérations.
+- Capteurs en lecture, entités `number` pour les consignes inscriptibles (plage et
+  pas annoncés par le régulateur), `select` pour les énumérations, pré-remplis avec
+  les libellés de l'appareil. Le type d'entité est déduit de la description que
+  l'OZW672 renvoie pour chaque point de données.
+- Ajout possible d'un point de données par son identifiant numérique, à
+  l'installation comme depuis les options.
 - Service générique `siemens_ozw672.write_datapoint`.

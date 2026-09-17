@@ -25,12 +25,20 @@
         "description": "Un datapoint est identifié par son topic dans le régulateur et non par son identifiant numérique : l'OZW672 génère les identifiants pour l'installation à laquelle il est raccordé et ceux-ci changent lorsque l'installation ou les paramètres du serveur sont actualisés. L'identifiant est vérifié à nouveau à chaque rechargement.\n\nAjoutez les datapoints que vous souhaitez utiliser, puis terminez.",
         "menu_options": {
           "add_datapoints": "Ajouter des datapoints",
+          "add_by_id": "Ajouter un datapoint par son id",
           "finish": "Terminer"
         }
       },
       "add_datapoints": {
         "title": "Ajouter des datapoints",
         "description": "Les datapoints de l'installation sont parcourus topic par topic, exactement comme dans l'arborescence de l'OZW672. Chaque écran liste les datapoints d'un topic : cochez ceux que vous voulez, puis continuez."
+      },
+      "add_by_id": {
+        "title": "Ajouter un datapoint par son id",
+        "description": "Saisissez l'identifiant numérique d'un datapoint de l'arborescence de l'OZW672. Sa description est lue sur l'appareil : le type, l'unité, la plage de valeurs et les valeurs d'énumération déterminent si le datapoint devient un capteur en lecture seule ou une entité modifiable depuis Home Assistant. L'identifiant peut être modifié par le régulateur lors d'une actualisation de l'installation ; s'il fait partie de l'arborescence, son topic est également enregistré et il est donc résolu à nouveau automatiquement à chaque rechargement.",
+        "data": {
+          "datapoint_id": "Identifiant du datapoint"
+        }
       },
       "pick": {
         "title": "Sélection des datapoints",
@@ -61,6 +69,7 @@
       "cannot_connect": "Échec de la connexion à l'OZW672.",
       "invalid_auth": "Identifiant ou mot de passe incorrect.",
       "no_datapoints": "Aucun datapoint n'a été trouvé sur cet appareil. Vérifiez que l'OZW672 est raccordé à un régulateur et que l'installation est en ligne.",
+      "unknown_datapoint": "Cet identifiant de datapoint n'a pas pu être lu sur l'OZW672. Vérifiez l'identifiant dans l'interface web de l'appareil.",
       "unknown": "Erreur inattendue."
     },
     "abort": {
@@ -75,8 +84,16 @@
         "menu_options": {
           "settings": "Paramètres d'interrogation",
           "add_datapoints": "Ajouter des datapoints",
+          "add_by_id": "Ajouter un datapoint par son id",
           "remove_datapoints": "Supprimer des datapoints",
           "edit_datapoint": "Modifier un datapoint"
+        }
+      },
+      "add_by_id": {
+        "title": "Ajouter un datapoint par son id",
+        "description": "Saisissez l'identifiant numérique d'un datapoint de l'arborescence de l'OZW672. Sa description est lue sur l'appareil : le type, l'unité, la plage de valeurs et les valeurs d'énumération déterminent si le datapoint devient un capteur en lecture seule ou une entité modifiable depuis Home Assistant. L'identifiant peut être modifié par le régulateur lors d'une actualisation de l'installation ; s'il fait partie de l'arborescence, son topic est également enregistré et il est donc résolu à nouveau automatiquement à chaque rechargement.",
+        "data": {
+          "datapoint_id": "Identifiant du datapoint"
         }
       },
       "settings": {
@@ -137,7 +154,8 @@
       }
     },
     "error": {
-      "cannot_connect": "L'arborescence de l'OZW672 n'a pas pu être lue."
+      "cannot_connect": "L'arborescence de l'OZW672 n'a pas pu être lue.",
+      "unknown_datapoint": "Cet identifiant de datapoint n'a pas pu être lu sur l'OZW672. Vérifiez l'identifiant dans l'interface web de l'appareil."
     },
     "abort": {
       "no_datapoints": "Aucun datapoint n'est encore configuré pour cette installation."

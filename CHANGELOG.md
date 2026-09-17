@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-09-17
+
+### Added
+
+- **Add a datapoint by its id** (setup flow and options). Paste the numeric
+  identifier of any datapoint of the OZW672 menutree and the integration adds
+  it; when the identifier belongs to the menu tree of the plant, its topic is
+  stored as well, so it is re-resolved automatically on the next reloads.
+- **The device description decides the kind of entity that is created.** The
+  metadata of a datapoint is now read from `api/menutree/datapoint_desc.json`,
+  which reports the type, the unit, the allowed range, the resolution (number
+  of decimals) and, for an enumeration or a radio button, the complete list of
+  the values the controller accepts with its own labels. As a result a writable
+  numeric datapoint becomes a `number` with the range and the step announced by
+  the controller (instead of 0 – 100 / 0.5), and a writable enumeration or
+  radio button becomes a `select` pre-filled with the controller labels.
+  Read-only datapoints - states, fault messages, operating hours - stay
+  sensors, and everything remains editable in *Edit a datapoint*.
+- Datapoints that are read-only for the plant but carry an enumeration are
+  stored with the option list of the device, so they can be switched to a
+  `select` in the options without typing the list by hand.
+
+### Changed
+
+- The enumeration options of a newly added datapoint are filled with the
+  controller labels, and the datapoint name is the one reported by the device
+  description when it is available.
+
 ## [1.0.0] - 2026-09-17
 
 First release: the integration is stable and covers the whole workflow, from
@@ -46,4 +74,5 @@ setup to writing values back to the controller.
   `Texte de défaut`) are suffixed `#2`, `#3` … so the generated topic paths are
   unique and reproducible.
 
+[1.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.0

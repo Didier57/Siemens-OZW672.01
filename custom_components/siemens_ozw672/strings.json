@@ -25,12 +25,20 @@
         "description": "A datapoint is identified by its topic in the controller and not by its numeric identifier: the OZW672 generates the identifiers for the plant it is wired to, and they change when the plant or the server parameters are refreshed. The identifier is checked again on every reload.\n\nAdd the datapoints you want to use, then finish.",
         "menu_options": {
           "add_datapoints": "Add datapoints",
+          "add_by_id": "Add a datapoint by its id",
           "finish": "Finish"
         }
       },
       "add_datapoints": {
         "title": "Add datapoints",
         "description": "The datapoints of the plant are browsed one topic after the other, exactly as in the menu tree of the OZW672. Each screen lists the datapoints of one topic: tick the ones you want, then continue."
+      },
+      "add_by_id": {
+        "title": "Add a datapoint by its id",
+        "description": "Enter the numeric identifier of a datapoint of the OZW672 menutree. Its description is read on the device: the type, the unit, the range and the enumeration values decide whether the datapoint becomes a read only sensor or an entity that can be changed from Home Assistant. The identifier can be changed by the controller when the plant is refreshed; if it belongs to the menu tree of the plant its topic is stored as well, so it is re-resolved automatically on every reload.",
+        "data": {
+          "datapoint_id": "Datapoint id"
+        }
       },
       "pick": {
         "title": "Select the datapoints",
@@ -61,6 +69,7 @@
       "cannot_connect": "Failed to connect to the OZW672.",
       "invalid_auth": "Invalid username or password.",
       "no_datapoints": "No datapoint was found on this device. Check that the OZW672 is wired to a controller and that the plant is online.",
+      "unknown_datapoint": "This datapoint identifier could not be read on the OZW672. Check the identifier in the device web interface.",
       "unknown": "Unexpected error."
     },
     "abort": {
@@ -75,8 +84,16 @@
         "menu_options": {
           "settings": "Polling settings",
           "add_datapoints": "Add datapoints",
+          "add_by_id": "Add a datapoint by its id",
           "remove_datapoints": "Remove datapoints",
           "edit_datapoint": "Edit a datapoint"
+        }
+      },
+      "add_by_id": {
+        "title": "Add a datapoint by its id",
+        "description": "Enter the numeric identifier of a datapoint of the OZW672 menutree. Its description is read on the device: the type, the unit, the range and the enumeration values decide whether the datapoint becomes a read only sensor or an entity that can be changed from Home Assistant. The identifier can be changed by the controller when the plant is refreshed; if it belongs to the menu tree of the plant its topic is stored as well, so it is re-resolved automatically on every reload.",
+        "data": {
+          "datapoint_id": "Datapoint id"
         }
       },
       "settings": {
@@ -137,7 +154,8 @@
       }
     },
     "error": {
-      "cannot_connect": "The OZW672 menu tree could not be read."
+      "cannot_connect": "The OZW672 menu tree could not be read.",
+      "unknown_datapoint": "This datapoint identifier could not be read on the OZW672. Check the identifier in the device web interface."
     },
     "abort": {
       "no_datapoints": "No datapoint is configured for this installation yet."

@@ -46,6 +46,7 @@ REQUEST_TIMEOUT = 15
 _READ_DATAPOINT = "/api/menutree/read_datapoint.json"
 _WRITE_DATAPOINT = "/api/menutree/write_datapoint.json"
 _LIST_MENUTREE = "/api/menutree/list.json"
+_DATAPOINT_DESC = "/api/menutree/datapoint_desc.json"
 _DEVICE_INFO = "/api/device/info.json"
 _LOGIN = "/api/auth/login.json"
 _LOGOUT = "/api/auth/logout.json"
@@ -124,6 +125,71 @@ def _to_int(value: Any) -> int | None:
         return int(str(value).strip())
     except (TypeError, ValueError):
         return None
+
+
+def _to_float(value: Any) -> float | None:
+    """Convert a device value into a float when possible."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_description(description: dict[str, Any]) -> dict[str, Any]:
+    """Normalise a ``datapoint_desc`` response.
+
+    The description is what tells how a datapoint must be exposed: its type,
+    its unit, the allowed range and, for an enumeration or a radio button, the
+    values the controller accepts with their labels.
+    """
+    options: dict[str, str] = {}
+    enums = description.get("Enums")
+    if isinstance(enums, list):
+        for entry in enums:
+            if not isinstance(entry, dict):
+                continue
+            code = _normalise_value(entry.get("Value"))
+            if code is None:
+                continue
+            label = _normalise_value(entry.get("Text"))
+            options[str(code)] = str(label) if label is not None else str(code)
+
+    buttons = description.get("Buttons")
+    if not options and isinstance(buttons, list):
+        for entry in buttons:
+            if not isinstance(entry, dict):
+                continue
+            for code, key in ((0, "TextOpt0"), (1, "TextOpt1")):
+                label = _normalise_value(entry.get(key))
+                if label is not None:
+                    options.setdefault(str(code), str(label))
+
+    unit = _normalise_value(description.get("Unit"))
+    hours = description.get("Hours")
+    if isinstance(hours, dict):
+        unit = unit or "h"
+        minimum = _to_float(hours.get("Min"))
+        maximum = _to_float(hours.get("Max"))
+        resolution = _to_float(hours.get("Resolution"))
+    else:
+        minimum = _to_float(description.get("Min"))
+        maximum = _to_float(description.get("Max"))
+        resolution = _to_float(description.get("Resolution"))
+
+    valid = _normalise_value(description.get("IsValid"))
+
+    return {
+        "type": _normalise_value(description.get("Type")),
+        "name": _normalise_value(description.get("Name")),
+        "unit": unit,
+        "min": minimum,
+        "max": maximum,
+        "resolution": resolution,
+        "options": options,
+        "valid": None if valid is None else str(valid).strip().lower() in _TRUE_TOKENS,
+    }
 
 
 def _item_title(item: dict[str, Any]) -> str:
@@ -239,6 +305,40 @@ class OZW672Client:
                 data.get("EnumValue", data.get("Enumvalue"))
             ),
         }
+
+    async def async_read_datapoint_description(
+        self, datapoint_id: int
+    ) -> dict[str, Any]:
+        """Read the description of a datapoint.
+
+        Returns the type, the unit, the allowed range and, when the datapoint
+        is an enumeration or a radio button, the values the controller accepts
+        with the labels it uses, so the caller can decide whether the datapoint
+        becomes a read only sensor or an entity that can be changed from Home
+        Assistant.
+        """
+        session_id = await self.async_ensure_session()
+        params: dict[str, Any] = {"SessionId": session_id, "Id": int(datapoint_id)}
+        try:
+            payload = await self._async_request(_DATAPOINT_DESC, params)
+        except OZW672AuthError:
+            _LOGGER.debug("Session expired, re-authenticating")
+            await self.async_login()
+            params["SessionId"] = self._session_id
+            payload = await self._async_request(_DATAPOINT_DESC, params)
+
+        error = _extract_error(payload)
+        if error is not None:
+            raise OZW672ApiError(
+                f"Description of datapoint {datapoint_id} failed: {error}"
+            )
+
+        description = payload.get("Description") if isinstance(payload, dict) else None
+        if not isinstance(description, dict):
+            raise OZW672ApiError(
+                f"Description of datapoint {datapoint_id} is missing from the response"
+            )
+        return _parse_description(description)
 
     async def _async_read(self, datapoint_id: int) -> Any:
         """Read a datapoint and return the raw payload (handles re-login)."""

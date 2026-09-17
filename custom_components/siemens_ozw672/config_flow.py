@@ -79,6 +79,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 MENU_ADD_DATAPOINTS = "add_datapoints"
+MENU_ADD_BY_ID = "add_by_id"
 MENU_REMOVE_DATAPOINTS = "remove_datapoints"
 MENU_EDIT_DATAPOINT = "edit_datapoint"
 MENU_SETTINGS = "settings"
@@ -87,6 +88,7 @@ MENU_NEXT_TOPIC = "next_topic"
 MENU_PREVIOUS_TOPIC = "previous_topic"
 
 DATAPOINTS_FIELD = "datapoints"
+ID_FIELD = "datapoint_id"
 KEY_FIELD = "key"
 ENUM_OPTIONS_FIELD = "enum_options"
 
@@ -185,7 +187,12 @@ async def _async_walk(
 async def _async_describe(
     hass: HomeAssistant, data: dict[str, Any], datapoint_ids: list[int]
 ) -> dict[int, dict[str, Any]]:
-    """Read the type and the unit of freshly selected datapoints."""
+    """Read the metadata of datapoints from the device.
+
+    ``datapoint_desc`` is preferred: it carries the unit, the allowed range and
+    the enumeration values of the datapoint, everything needed to decide how to
+    expose it. Firmwares that do not implement it fall back to a plain read.
+    """
     details: dict[int, dict[str, Any]] = {
         datapoint_id: {} for datapoint_id in datapoint_ids
     }
@@ -197,6 +204,17 @@ async def _async_describe(
     try:
         for datapoint_id in datapoint_ids:
             try:
+                details[datapoint_id] = await client.async_read_datapoint_description(
+                    datapoint_id
+                )
+                continue
+            except OZW672Error as err:
+                _LOGGER.debug(
+                    "No description for datapoint %s, falling back to a read: %s",
+                    datapoint_id,
+                    err,
+                )
+            try:
                 details[datapoint_id] = await client.async_read_datapoint_details(
                     datapoint_id
                 )
@@ -205,6 +223,14 @@ async def _async_describe(
     finally:
         await client.async_logout()
     return details
+
+
+def _find_item(walk: list[dict[str, Any]], datapoint_id: int) -> dict[str, Any] | None:
+    """Return the menu tree entry of a datapoint identifier, if enumerated."""
+    for item in walk:
+        if int(item.get(DP_ID, 0)) == datapoint_id:
+            return item
+    return None
 
 
 def _topic_of(path: str) -> str:
@@ -281,37 +307,48 @@ async def _async_apply_topic(
 
 
 def _build_datapoint(item: dict[str, Any], details: dict[str, Any]) -> dict[str, Any]:
-    """Turn a menu tree entry into a stored datapoint configuration.
+    """Turn a menu tree entry and its device description into a configuration.
 
-    The device only tells us the value type and the unit of a datapoint, not
-    whether it is meant to be a setpoint: writable numeric datapoints are
-    exposed as numbers, everything else (enumerations, radio buttons, time of
-    day) is exposed as a text sensor. The platform can be changed afterwards
-    in the options.
+    The description decides how the datapoint is exposed: a writable numeric
+    datapoint becomes a number (with the range and the resolution announced by
+    the controller), a writable enumeration or radio button becomes a select
+    with the labels the controller uses, and anything else - read only values,
+    states, fault messages, operating hours - becomes a read only entity. The
+    platform and the metadata can still be changed afterwards in the options.
     """
     datapoint_id = int(item[DP_ID])
     value_type = str(details.get("type") or TYPE_NUMERIC)
     unit = details.get("unit") or None
+    options = details.get("options") or {}
     write_access = bool(item.get(DP_WRITE_ACCESS))
-    platform = (
-        PLATFORM_NUMBER
-        if write_access and value_type == TYPE_NUMERIC
-        else PLATFORM_SENSOR
-    )
+    name = str(details.get("name") or item.get(DP_NAME) or f"Datapoint {datapoint_id}")
 
-    device_class = guess_device_class(unit)
+    if write_access and options:
+        platform = PLATFORM_SELECT
+        value_type = TYPE_ENUMERATION
+    elif write_access and value_type == TYPE_NUMERIC:
+        platform = PLATFORM_NUMBER
+    else:
+        platform = PLATFORM_SENSOR
+
     if platform == PLATFORM_NUMBER:
         state_class = None
-        min_value: float | None = 0.0
-        max_value: float | None = 100.0
-        step: float | None = 0.5
+        min_value = details.get("min")
+        max_value = details.get("max")
+        step = details.get("resolution")
+        min_value = 0.0 if min_value is None else float(min_value)
+        max_value = 100.0 if max_value is None else float(max_value)
+        step = 0.5 if not step else float(step)
+    elif platform == PLATFORM_SELECT:
+        state_class = None
+        min_value = max_value = step = None
     else:
         state_class = guess_state_class(unit) if value_type == TYPE_NUMERIC else None
         min_value = max_value = step = None
 
     return {
         DP_ID: datapoint_id,
-        DP_NAME: str(item.get(DP_NAME) or f"Datapoint {datapoint_id}"),
+        DP_NAME: name,
         DP_PATH: item.get(DP_PATH),
         DP_ADDRESS: item.get(DP_ADDRESS),
         DP_SUBKEY: item.get(DP_SUBKEY),
@@ -319,9 +356,9 @@ def _build_datapoint(item: dict[str, Any], details: dict[str, Any]) -> dict[str,
         DP_PLATFORM: platform,
         DP_VALUE_TYPE: value_type,
         DP_UNIT: unit,
-        DP_DEVICE_CLASS: device_class,
+        DP_DEVICE_CLASS: guess_device_class(unit),
         DP_STATE_CLASS: state_class,
-        DP_OPTIONS: None,
+        DP_OPTIONS: {str(key): label for key, label in options.items()} or None,
         DP_MIN_VALUE: min_value,
         DP_MAX_VALUE: max_value,
         DP_STEP: step,
@@ -630,7 +667,7 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
         """Show the datapoint selection menu."""
         return self.async_show_menu(
             step_id="datapoints",
-            menu_options=[MENU_ADD_DATAPOINTS, MENU_FINISH],
+            menu_options=[MENU_ADD_DATAPOINTS, MENU_ADD_BY_ID, MENU_FINISH],
         )
 
     def _current_topic(self) -> str:
@@ -714,6 +751,44 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
             )
             return await self.async_step_topic_menu()
         return await self._async_show_topic()
+
+    async def async_step_add_by_id(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Add a datapoint from its identifier.
+
+        The description of the identifier tells whether the datapoint is
+        writable, its unit, its range and its enumeration values, which decides
+        the kind of entity that is created. When the identifier is part of the
+        menu tree its topic is stored too, so it keeps being re-resolved on the
+        next reloads.
+        """
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            datapoint_id = int(user_input[ID_FIELD])
+            details = (
+                await _async_describe(self.hass, self._connection, [datapoint_id])
+            )[datapoint_id]
+            if not details:
+                errors["base"] = "unknown_datapoint"
+            else:
+                item = _find_item(self._walk, datapoint_id) or {DP_ID: datapoint_id}
+                config = _build_datapoint(item, details)
+                self._selection[datapoint_key(config)] = config
+                return await self.async_step_datapoints()
+
+        return self.async_show_form(
+            step_id=MENU_ADD_BY_ID,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(ID_FIELD): NumberSelector(
+                        NumberSelectorConfig(min=1, step=1, mode=NumberSelectorMode.BOX)
+                    )
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_finish(
         self, user_input: dict[str, Any] | None = None
@@ -870,6 +945,7 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
             menu_options=[
                 MENU_SETTINGS,
                 MENU_ADD_DATAPOINTS,
+                MENU_ADD_BY_ID,
                 MENU_REMOVE_DATAPOINTS,
                 MENU_EDIT_DATAPOINT,
             ],
@@ -943,6 +1019,49 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
     ) -> FlowResult:
         """Save the datapoints and close the options."""
         return self._save()
+
+    async def async_step_add_by_id(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Add a datapoint from its identifier.
+
+        The description of the identifier tells whether the datapoint is
+        writable, its unit, its range and its enumeration values, which decides
+        the kind of entity that is created. When the identifier is part of the
+        menu tree its topic is stored too, so it keeps being re-resolved on the
+        next reloads.
+        """
+        errors: dict[str, str] = {}
+        datapoints = self._datapoints
+
+        if user_input is not None:
+            datapoint_id = int(user_input[ID_FIELD])
+            if not self._walk:
+                await self._async_walk_tree()
+            details = (
+                await _async_describe(
+                    self.hass, dict(self.config_entry.data), [datapoint_id]
+                )
+            )[datapoint_id]
+            if not details:
+                errors["base"] = "unknown_datapoint"
+            else:
+                item = _find_item(self._walk, datapoint_id) or {DP_ID: datapoint_id}
+                config = _build_datapoint(item, details)
+                datapoints[datapoint_key(config)] = config
+                return self._save()
+
+        return self.async_show_form(
+            step_id=MENU_ADD_BY_ID,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(ID_FIELD): NumberSelector(
+                        NumberSelectorConfig(min=1, step=1, mode=NumberSelectorMode.BOX)
+                    )
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_pick(
         self, user_input: dict[str, Any] | None = None
