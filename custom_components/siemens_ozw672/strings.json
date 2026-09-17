@@ -1,0 +1,129 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to the Siemens OZW672",
+        "description": "Enter the connection details of the OZW672 web server.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password",
+          "use_https": "Use HTTPS",
+          "verify_ssl": "Verify the SSL certificate"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate with the OZW672",
+        "description": "The OZW672 rejected the stored credentials. Update them below.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the OZW672.",
+      "invalid_auth": "Invalid username or password.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This OZW672 is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Siemens OZW672 options",
+        "menu_options": {
+          "settings": "Polling settings",
+          "add_datapoint": "Add a custom datapoint",
+          "remove_datapoint": "Remove a custom datapoint"
+        }
+      },
+      "settings": {
+        "title": "Polling settings",
+        "description": "How often the OZW672 datapoints are read.",
+        "data": {
+          "scan_interval": "Scan interval"
+        }
+      },
+      "add_datapoint": {
+        "title": "Add a custom datapoint",
+        "description": "Declare an extra datapoint of the OZW672 menutree. Leave enum_options empty for numeric datapoints, otherwise use a '1=Label, 2=Label' list.",
+        "data": {
+          "datapoint_id": "Datapoint id",
+          "name": "Name",
+          "platform": "Entity type",
+          "value_type": "Value type",
+          "unit": "Unit of measurement",
+          "device_class": "Device class",
+          "state_class": "State class",
+          "enum_options": "Enumeration options",
+          "min_value": "Minimum value",
+          "max_value": "Maximum value",
+          "step": "Step"
+        }
+      },
+      "remove_datapoint": {
+        "title": "Remove a custom datapoint",
+        "data": {
+          "datapoints": "Datapoints"
+        }
+      }
+    },
+    "error": {
+      "duplicate": "This datapoint is already configured."
+    },
+    "abort": {
+      "no_custom_datapoints": "No custom datapoint has been declared yet."
+    }
+  },
+  "services": {
+    "write_datapoint": {
+      "name": "Write datapoint",
+      "description": "Write a value to an arbitrary datapoint of a Siemens OZW672 device.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry",
+          "description": "Target OZW672 config entry. Optional when only one is configured."
+        },
+        "datapoint_id": {
+          "name": "Datapoint id",
+          "description": "Numeric identifier of the datapoint in the OZW672 menutree."
+        },
+        "value": {
+          "name": "Value",
+          "description": "Value to write."
+        },
+        "value_type": {
+          "name": "Value type",
+          "description": "OZW672 datapoint type. Use Enumeration for switch-like datapoints."
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connectivity": {
+        "name": "Connectivity"
+      }
+    }
+  },
+  "selector": {
+    "platform": {
+      "options": {
+        "sensor": "Sensor (read only)",
+        "number": "Number (writable)",
+        "select": "Select (enumeration)"
+      }
+    },
+    "value_type": {
+      "options": {
+        "Numeric": "Numeric",
+        "Enumeration": "Enumeration"
+      }
+    }
+  }
+}

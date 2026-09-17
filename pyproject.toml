@@ -1,0 +1,30 @@
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "W",
+  "I",
+  "N",
+  "D",
+  "UP",
+  "B",
+  "C4",
+  "SIM",
+  "RUF",
+]
+ignore = [
+  "D203",
+  "D213",
+  "D406",
+  "D407",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["homeassistant"]

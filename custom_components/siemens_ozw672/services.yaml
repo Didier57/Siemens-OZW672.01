@@ -1,0 +1,38 @@
+write_datapoint:
+  name: Write datapoint
+  description: Write a value to an arbitrary datapoint of a Siemens OZW672 device.
+  fields:
+    entry_id:
+      name: Config entry
+      description: Target OZW672 config entry. Optional when only one is configured.
+      required: false
+      selector:
+        config_entry:
+          integration: siemens_ozw672
+    datapoint_id:
+      name: Datapoint id
+      description: Numeric identifier of the datapoint in the OZW672 menutree.
+      required: true
+      example: 2687
+      selector:
+        number:
+          min: 1
+          max: 999999
+          mode: box
+    value:
+      name: Value
+      description: Value to write.
+      required: true
+      example: "21.5"
+      selector:
+        text:
+    value_type:
+      name: Value type
+      description: OZW672 datapoint type. Use Enumeration for switch-like datapoints.
+      required: false
+      default: Numeric
+      selector:
+        select:
+          options:
+            - Numeric
+            - Enumeration

@@ -1,0 +1,129 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion au Siemens OZW672",
+        "description": "Saisissez les informations de connexion du serveur web OZW672.",
+        "data": {
+          "host": "Hôte",
+          "port": "Port",
+          "username": "Nom d'utilisateur",
+          "password": "Mot de passe",
+          "use_https": "Utiliser HTTPS",
+          "verify_ssl": "Vérifier le certificat SSL"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ré-authentification auprès de l'OZW672",
+        "description": "L'OZW672 a refusé les identifiants enregistrés. Mettez-les à jour ci-dessous.",
+        "data": {
+          "username": "Nom d'utilisateur",
+          "password": "Mot de passe"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Échec de la connexion à l'OZW672.",
+      "invalid_auth": "Nom d'utilisateur ou mot de passe invalide.",
+      "unknown": "Erreur inattendue."
+    },
+    "abort": {
+      "already_configured": "Cet OZW672 est déjà configuré.",
+      "reauth_successful": "La ré-authentification a réussi."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options du Siemens OZW672",
+        "menu_options": {
+          "settings": "Paramètres d'interrogation",
+          "add_datapoint": "Ajouter un point de données personnalisé",
+          "remove_datapoint": "Supprimer un point de données personnalisé"
+        }
+      },
+      "settings": {
+        "title": "Paramètres d'interrogation",
+        "description": "Fréquence de lecture des points de données de l'OZW672.",
+        "data": {
+          "scan_interval": "Intervalle d'interrogation"
+        }
+      },
+      "add_datapoint": {
+        "title": "Ajouter un point de données personnalisé",
+        "description": "Déclarez un point de données supplémentaire de l'arborescence de l'OZW672. Laissez enum_options vide pour un point numérique, sinon utilisez une liste du type « 1=Libellé, 2=Libellé ».",
+        "data": {
+          "datapoint_id": "Identifiant du point de données",
+          "name": "Nom",
+          "platform": "Type d'entité",
+          "value_type": "Type de valeur",
+          "unit": "Unité de mesure",
+          "device_class": "Classe d'appareil",
+          "state_class": "Classe d'état",
+          "enum_options": "Options d'énumération",
+          "min_value": "Valeur minimale",
+          "max_value": "Valeur maximale",
+          "step": "Pas"
+        }
+      },
+      "remove_datapoint": {
+        "title": "Supprimer un point de données personnalisé",
+        "data": {
+          "datapoints": "Points de données"
+        }
+      }
+    },
+    "error": {
+      "duplicate": "Ce point de données est déjà configuré."
+    },
+    "abort": {
+      "no_custom_datapoints": "Aucun point de données personnalisé n'a encore été déclaré."
+    }
+  },
+  "services": {
+    "write_datapoint": {
+      "name": "Écrire un point de données",
+      "description": "Écrit une valeur dans un point de données arbitraire d'un appareil Siemens OZW672.",
+      "fields": {
+        "entry_id": {
+          "name": "Entrée de configuration",
+          "description": "Entrée de configuration OZW672 cible. Facultatif s'il n'y en a qu'une."
+        },
+        "datapoint_id": {
+          "name": "Identifiant du point de données",
+          "description": "Identifiant numérique du point de données dans l'arborescence de l'OZW672."
+        },
+        "value": {
+          "name": "Valeur",
+          "description": "Valeur à écrire."
+        },
+        "value_type": {
+          "name": "Type de valeur",
+          "description": "Type du point de données OZW672. Utilisez Enumeration pour les points de type interrupteur."
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connectivity": {
+        "name": "Connectivité"
+      }
+    }
+  },
+  "selector": {
+    "platform": {
+      "options": {
+        "sensor": "Capteur (lecture seule)",
+        "number": "Nombre (modifiable)",
+        "select": "Liste (énumération)"
+      }
+    },
+    "value_type": {
+      "options": {
+        "Numeric": "Numérique",
+        "Enumeration": "Énumération"
+      }
+    }
+  }
+}
