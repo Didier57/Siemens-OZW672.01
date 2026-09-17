@@ -6,8 +6,36 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MANUFACTURER, MODEL, Datapoint
+from .const import (
+    CONF_DEVICE_NAME,
+    CONF_GATEWAY_FIRMWARE,
+    CONF_GATEWAY_SERIAL,
+    DOMAIN,
+    MANUFACTURER,
+    MODEL,
+    Datapoint,
+)
 from .coordinator import SiemensOZW672Coordinator
+
+
+def build_device_info(
+    coordinator: SiemensOZW672Coordinator, entry: ConfigEntry
+) -> DeviceInfo:
+    """Build the DeviceInfo shared by every entity of an entry."""
+    device_info = DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name=entry.data.get(CONF_DEVICE_NAME) or entry.title,
+        manufacturer=MANUFACTURER,
+        model=entry.data.get(CONF_DEVICE_NAME) or MODEL,
+        configuration_url=coordinator.client.base_url,
+    )
+    serial = entry.data.get(CONF_GATEWAY_SERIAL)
+    if serial:
+        device_info["serial_number"] = str(serial)
+    firmware = entry.data.get(CONF_GATEWAY_FIRMWARE)
+    if firmware:
+        device_info["sw_version"] = str(firmware)
+    return device_info
 
 
 class SiemensOZW672Entity(CoordinatorEntity[SiemensOZW672Coordinator]):
@@ -26,13 +54,7 @@ class SiemensOZW672Entity(CoordinatorEntity[SiemensOZW672Coordinator]):
         self.datapoint = datapoint
         self._attr_unique_id = f"{entry.entry_id}_{datapoint.key}"
         self._attr_name = datapoint.name
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=entry.title,
-            manufacturer=MANUFACTURER,
-            model=MODEL,
-            configuration_url=coordinator.client.base_url,
-        )
+        self._attr_device_info = build_device_info(coordinator, entry)
 
     @property
     def raw_value(self) -> object:

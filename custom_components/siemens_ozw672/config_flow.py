@@ -30,10 +30,15 @@ from .api import (
     OZW672AuthError,
     OZW672Client,
     OZW672ConnectionError,
+    OZW672Error,
 )
 from .const import (
     CONF_CUSTOM_DATAPOINTS,
+    CONF_DEVICE_ID,
+    CONF_DEVICE_NAME,
     CONF_DISABLED_DATAPOINTS,
+    CONF_GATEWAY_FIRMWARE,
+    CONF_GATEWAY_SERIAL,
     CONF_HOST,
     CONF_PASSWORD,
     CONF_PORT,
@@ -87,11 +92,10 @@ def _normalise(user_input: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-async def _async_validate(hass: HomeAssistant, data: dict[str, Any]) -> None:
-    """Validate the credentials against the device."""
-    session = async_get_clientsession(hass)
-    client = OZW672Client(
-        session,
+def _client(hass: HomeAssistant, data: dict[str, Any]) -> OZW672Client:
+    """Build a client from the connection data."""
+    return OZW672Client(
+        async_get_clientsession(hass),
         data[CONF_HOST],
         data[CONF_USERNAME],
         data[CONF_PASSWORD],
@@ -99,8 +103,40 @@ async def _async_validate(hass: HomeAssistant, data: dict[str, Any]) -> None:
         use_https=data.get(CONF_USE_HTTPS, False),
         verify_ssl=data.get(CONF_VERIFY_SSL, False),
     )
+
+
+async def _async_validate(hass: HomeAssistant, data: dict[str, Any]) -> None:
+    """Validate the credentials against the device."""
+    client = _client(hass, data)
     try:
         await client.async_login()
+    finally:
+        await client.async_logout()
+
+
+async def _async_probe(
+    hass: HomeAssistant, data: dict[str, Any]
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Collect the devices of the plant and the gateway information.
+
+    Logging in proves the credentials; listing the devices or reading the
+    gateway information may still be unsupported by a given firmware, in which
+    case setup continues without them.
+    """
+    client = _client(hass, data)
+    await client.async_login()
+    try:
+        try:
+            devices = await client.async_list_devices()
+        except OZW672Error as err:
+            _LOGGER.warning("Cannot list the OZW672 devices: %s", err)
+            devices = []
+        try:
+            info = await client.async_get_device_info()
+        except OZW672Error as err:
+            _LOGGER.warning("Cannot read the OZW672 gateway information: %s", err)
+            info = {}
+        return devices, info
     finally:
         await client.async_logout()
 
@@ -223,6 +259,27 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialise the flow."""
         self._reauth_entry: ConfigEntry | None = None
+        self._connection: dict[str, Any] = {}
+        self._devices: list[dict[str, Any]] = []
+        self._gateway: dict[str, Any] = {}
+
+    def _async_create_entry(
+        self, device_id: int | None = None, device_name: str | None = None
+    ) -> FlowResult:
+        """Create the config entry for the connection and the chosen device."""
+        data = dict(self._connection)
+        firmware = self._gateway.get("FwVersion")
+        serial = self._gateway.get("SerialNr")
+        if firmware:
+            data[CONF_GATEWAY_FIRMWARE] = str(firmware)
+        if serial:
+            data[CONF_GATEWAY_SERIAL] = str(serial)
+        if device_id is not None:
+            data[CONF_DEVICE_ID] = int(device_id)
+        if device_name:
+            data[CONF_DEVICE_NAME] = device_name
+        title = device_name or data[CONF_HOST]
+        return self.async_create_entry(title=title, data=data)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -233,7 +290,7 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             data = _normalise(user_input)
             try:
-                await _async_validate(self.hass, data)
+                devices, gateway = await _async_probe(self.hass, data)
             except OZW672AuthError as err:
                 _LOGGER.warning("OZW672 authentication failed: %s", err)
                 errors["base"] = "invalid_auth"
@@ -249,12 +306,55 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 await self.async_set_unique_id(data[CONF_HOST].lower())
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=data[CONF_HOST], data=data)
+                self._connection = data
+                self._devices = devices
+                self._gateway = gateway
+                if devices:
+                    return await self.async_step_device()
+                return self._async_create_entry()
 
         return self.async_show_form(
             step_id="user",
             data_schema=_user_schema(user_input),
             errors=errors,
+        )
+
+    async def async_step_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Let the user select the plant device to use.
+
+        A single OZW672 usually serves one controller, but it can also be
+        wired to several controllers on the same bus. Datapoint identifiers
+        depend on the plant, so the device list is read from the menutree of
+        the OZW672 itself.
+        """
+        if user_input is not None:
+            raw_id = user_input[CONF_DEVICE_ID]
+            name = None
+            for device in self._devices:
+                if str(device["id"]) == str(raw_id):
+                    name = device["name"]
+                    break
+            return self._async_create_entry(int(raw_id), name)
+
+        return self.async_show_form(
+            step_id="device",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_DEVICE_ID): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                SelectOptionDict(
+                                    value=str(device["id"]), label=device["name"]
+                                )
+                                for device in self._devices
+                            ],
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
         )
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:

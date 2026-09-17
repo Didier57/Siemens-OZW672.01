@@ -13,6 +13,13 @@
           "verify_ssl": "Verify the SSL certificate"
         }
       },
+      "device": {
+        "title": "Select the plant device",
+        "description": "The OZW672 reports the devices it is wired to. Select the device to use. Datapoints are read from the OZW672 itself, so the selection identifies the plant in Home Assistant.",
+        "data": {
+          "device_id": "Device"
+        }
+      },
       "reauth_confirm": {
         "title": "Re-authenticate with the OZW672",
         "description": "The OZW672 rejected the stored credentials. Update them below.",
@@ -52,7 +59,7 @@
       },
       "builtin_datapoints": {
         "title": "Built-in datapoints",
-        "description": "Select the datapoints that exist on your installation and that you want to poll. The built-in catalog matches the reference installation only: deselect the datapoints your plant does not have (they would otherwise fail to read), and declare your own identifiers with 'Add a custom datapoint'.",
+        "description": "Select the datapoints that exist on your installation and that you want to poll. Datapoint identifiers are generated for the plant, so the built-in catalog only matches installations built around the same controller: deselect the datapoints your plant does not have (they would otherwise fail to read), and declare your own identifiers with 'Add a custom datapoint'.",
         "data": {
           "disabled": "Disabled datapoints"
         }

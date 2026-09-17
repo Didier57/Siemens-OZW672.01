@@ -13,6 +13,13 @@
           "verify_ssl": "Vérifier le certificat SSL"
         }
       },
+      "device": {
+        "title": "Sélection de l'appareil de l'installation",
+        "description": "L'OZW672 indique les appareils auxquels il est raccordé. Sélectionnez celui à utiliser. Les points de données sont lus directement dans l'OZW672 : cette sélection identifie l'installation dans Home Assistant.",
+        "data": {
+          "device_id": "Appareil"
+        }
+      },
       "reauth_confirm": {
         "title": "Ré-authentification auprès de l'OZW672",
         "description": "L'OZW672 a refusé les identifiants enregistrés. Mettez-les à jour ci-dessous.",
@@ -52,7 +59,7 @@
       },
       "builtin_datapoints": {
         "title": "Points de données intégrés",
-        "description": "Sélectionnez les points de données présents sur votre installation et que vous souhaitez interroger. Le catalogue intégré correspond à l'installation de référence uniquement : décochez les points que votre installation ne possède pas (leur lecture échouerait sinon) et déclarez vos propres identifiants avec « Ajouter un point de données personnalisé ».",
+        "description": "Sélectionnez les points de données présents sur votre installation et que vous souhaitez interroger. Les identifiants des points de données sont générés pour chaque installation : le catalogue intégré ne correspond donc qu'aux installations construites autour du même régulateur. Décochez les points que votre installation ne possède pas (leur lecture échouerait sinon) et déclarez vos propres identifiants avec « Ajouter un point de données personnalisé ».",
         "data": {
           "disabled": "Points de données désactivés"
         }

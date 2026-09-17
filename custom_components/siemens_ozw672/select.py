@@ -42,12 +42,19 @@ class SiemensOZW672Select(SiemensOZW672Entity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
-        """Return the currently selected option."""
+        """Return the currently selected option.
+
+        The OZW672 reports either the numeric enumeration code or the label
+        itself, depending on the firmware, so both shapes are accepted.
+        """
         value = self.raw_value
         if value is None:
             return None
+        text = str(value).strip()
+        if text in self._attr_options:
+            return text
         try:
-            key = int(str(value).strip())
+            key = int(text)
         except (TypeError, ValueError):
             return None
         return self._options.get(key)

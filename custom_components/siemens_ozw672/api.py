@@ -19,7 +19,7 @@ from typing import Any
 
 import aiohttp
 
-from .const import TYPE_NUMERIC
+from .const import INVALID_TOKENS, TYPE_NUMERIC
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +27,8 @@ REQUEST_TIMEOUT = 15
 
 _READ_DATAPOINT = "/api/menutree/read_datapoint.json"
 _WRITE_DATAPOINT = "/api/menutree/write_datapoint.json"
+_LIST_MENUTREE = "/api/menutree/list.json"
+_DEVICE_INFO = "/api/device/info.json"
 _LOGIN = "/api/auth/login.json"
 _LOGOUT = "/api/auth/logout.json"
 
@@ -78,6 +80,20 @@ def _extract_error(payload: Any) -> str | None:
             return "unknown device error"
 
     return None
+
+
+def _normalise_value(value: Any) -> Any:
+    """Clean up a raw datapoint value.
+
+    The OZW672 right-pads numeric values with spaces and reports datapoints
+    that are configured but not wired on the plant with a dash pattern.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not text or text in INVALID_TOKENS:
+        return None
+    return text
 
 
 class OZW672Client:
@@ -175,17 +191,17 @@ class OZW672Client:
         if isinstance(payload, dict):
             for key in ("Value", "value"):
                 if key in payload:
-                    return payload[key]
+                    return _normalise_value(payload[key])
 
             data = payload.get("Data", payload.get("data"))
             if isinstance(data, dict):
                 for key in ("Value", "value"):
                     if key in data:
-                        return data[key]
+                        return _normalise_value(data[key])
             elif isinstance(data, (int, float, str, bool)):
-                return data
+                return _normalise_value(data)
         elif isinstance(payload, (int, float, str, bool)):
-            return payload
+            return _normalise_value(payload)
 
         if datapoint_id not in self._warned_payloads:
             self._warned_payloads.add(datapoint_id)
@@ -196,6 +212,55 @@ class OZW672Client:
                 payload,
             )
         return None
+
+    async def async_list_devices(self) -> list[dict[str, Any]]:
+        """Return the devices known by the OZW672.
+
+        Datapoint identifiers are generated for the plant the OZW672 is wired
+        to, so the devices of a plant are the entries of the menutree root
+        node: every controller on the bus shows up there with its bus address
+        and its type (for example ``1 RVS21.831F/127``).
+        """
+        payload = await self._async_session_request(_LIST_MENUTREE, {"Id": ""})
+        items = payload.get("MenuItems") if isinstance(payload, dict) else None
+        if not isinstance(items, list):
+            error = _extract_error(payload)
+            if error is not None:
+                raise OZW672ApiError(f"Cannot list the OZW672 devices: {error}")
+            return []
+
+        devices: list[dict[str, Any]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            try:
+                device_id = int(item["Id"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            text = item.get("Text")
+            text = text if isinstance(text, dict) else {}
+            name = text.get("Long") or text.get("Short") or f"Device {device_id}"
+            devices.append({"id": device_id, "name": str(name)})
+        return devices
+
+    async def async_get_device_info(self) -> dict[str, Any]:
+        """Return the gateway information (name, serial number, firmware)."""
+        payload = await self._async_session_request(_DEVICE_INFO, {})
+        if isinstance(payload, dict) and isinstance(payload.get("Device"), dict):
+            return dict(payload["Device"])
+        return {}
+
+    async def _async_session_request(self, path: str, params: dict[str, Any]) -> Any:
+        """Perform a request, re-authenticating once if the session expired."""
+        session_id = await self.async_ensure_session()
+        try:
+            return await self._async_request(path, {"SessionId": session_id, **params})
+        except OZW672AuthError:
+            _LOGGER.debug("Session expired, re-authenticating")
+            await self.async_login()
+            return await self._async_request(
+                path, {"SessionId": self._session_id, **params}
+            )
 
     async def async_write_datapoint(
         self,

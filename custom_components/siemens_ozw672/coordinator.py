@@ -145,9 +145,11 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         if failures and failures == len(self.datapoints):
             _LOGGER.error(
                 "None of the %s configured OZW672 datapoints could be read. "
-                "The built-in catalog matches the reference installation only: "
-                "declare the datapoint identifiers of your own plant in the "
-                "integration options and disable the ones that do not apply.",
+                "Datapoint identifiers are generated for the plant, so the "
+                "built-in catalog only matches installations built around the "
+                "same controller: declare the identifiers of your own plant in "
+                "the integration options and disable the ones that do not "
+                "apply there.",
                 failures,
             )
 

@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-09-17
+
+### Added
+
+- Device selection during setup. The OZW672 reports the controllers it is wired
+  to (the menutree root node), and the integration now asks which one to use
+  instead of relying on a hard-coded catalog. The selected device names the
+  Home Assistant device, together with the gateway serial number and firmware
+  version read from the OZW672 itself.
+- `OZW672Client.async_list_devices()` and `OZW672Client.async_get_device_info()`,
+  plus a session helper that re-authenticates once when a session expires.
+- `OZW672Error` is exported for callers that want to catch any client error.
+
+### Changed
+
+- The built-in catalog now contains the datapoint identifiers of a real
+  installation (OZW672.01 + RVS21.831F/127 heat pump controller): outside, room,
+  flow, heat pump flow/return and DHW temperatures, active setpoints, hydraulic
+  pressure, compressor modulation, thermal energy, operating hours, and the
+  state datapoints (heat pump, compressor, heating circuit, DHW, cooling
+  circuit, fault and maintenance). The previous identifiers came from a
+  different plant and could not be read.
+- Datapoint values are stripped of the padding added by the controller, and the
+  dash patterns used for datapoints that are not wired (`----`, `---`, `-`) are
+  reported as unknown instead of being shown as a value.
+- `select` entities accept both the numeric enumeration code and the label
+  reported by some firmwares.
+- The device information (name, model, serial number, firmware) is built once
+  and shared by every entity of a config entry.
+
 ## [1.0.2] - 2026-09-17
 
 ### Added
@@ -55,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HACS and hassfest validation workflows.
 - English and French translations.
 
+[1.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.1.0
 [1.0.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.0
