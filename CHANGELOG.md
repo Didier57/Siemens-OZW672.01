@@ -1,8 +1,19 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.1.1] - 2026-09-17
+
+### Fixed
+
+- Browse the topics one after the other without the flow being dropped by Home
+  Assistant. The menu offering "Next topic", "Previous topic" and "Finish" was
+  returned with a step id that had no matching step method, which made Home
+  Assistant invalidate the flow while the topic was displayed and report
+  "Invalid flow specified" on submit. The menu is now returned by a proper
+  `topic_menu` step in both the setup and the options flow.
 
 ## [2.1.0] - 2026-09-17
 
@@ -52,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not match every installation, which is exactly what made entities stay
   `unknown` on other plants. Datapoints are now declared per entry.
 - Sibling nodes sharing a title (the controller has a few, for example
-  `Texte de défaut`) are suffixed `#2`, `#3` … at tree walking time so the
+  `Texte de dÃ©faut`) are suffixed `#2`, `#3` â€¦ at tree walking time so the
   generated topic paths are unique and reproducible.
 - Entity names are disambiguated with the parent topic when two selected
   datapoints of the same plant share a name, and the unique id is now based on
@@ -73,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Config entries created with 1.x are migrated to version 2: custom datapoints
   declared with 1.x are kept as `id:<n>` entries, and the datapoints of the old
   built-in catalog are removed. Re-select them by topic in
-  **Configure → Add datapoints**.
+  **Configure â†’ Add datapoints**.
 
 ## [1.1.0] - 2026-09-17
 
@@ -156,6 +167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HACS and hassfest validation workflows.
 - English and French translations.
 
+[2.1.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v2.1.1
 [2.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v2.1.0
 [2.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v2.0.0
 [1.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.1.0

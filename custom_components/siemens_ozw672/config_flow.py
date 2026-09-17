@@ -661,8 +661,15 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def _async_show_topic_menu(self) -> FlowResult:
-        """Offer to browse the next topic or to finish."""
+    async def async_step_topic_menu(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Offer to browse the next topic or to finish.
+
+        Home Assistant requires the step id of a returned menu to have a
+        matching ``async_step_<step_id>`` method, so the menu is returned by
+        this step, which ``async_step_pick`` reaches after storing a topic.
+        """
         menu: list[str] = []
         if self._topic_index < len(self._topics) - 1:
             menu.append(MENU_NEXT_TOPIC)
@@ -705,7 +712,7 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
             await _async_apply_topic(
                 self.hass, self._connection, self._selection, items, chosen
             )
-            return await self._async_show_topic_menu()
+            return await self.async_step_topic_menu()
         return await self._async_show_topic()
 
     async def async_step_finish(
@@ -825,8 +832,15 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
             },
         )
 
-    def _show_topic_menu(self) -> FlowResult:
-        """Offer to browse the next topic or to save."""
+    async def async_step_topic_menu(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Offer to browse the next topic or to save.
+
+        Home Assistant requires the step id of a returned menu to have a
+        matching ``async_step_<step_id>`` method, so the menu is returned by
+        this step, which ``async_step_pick`` reaches after storing a topic.
+        """
         menu: list[str] = []
         if self._topic_index < len(self._topics) - 1:
             menu.append(MENU_NEXT_TOPIC)
@@ -944,7 +958,7 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
                 items,
                 chosen,
             )
-            return self._show_topic_menu()
+            return await self.async_step_topic_menu()
         return await self._async_show_topic()
 
     async def async_step_remove_datapoints(
