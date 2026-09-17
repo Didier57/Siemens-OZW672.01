@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-17
+
+### Added
+
+- **The datapoints of the entry are re-checked against the device on every
+  reload.** Restarting or reloading the integration now reads
+  `api/menutree/datapoint_desc.json` for each configured datapoint and adapts
+  the entity to what the device currently announces, exactly as it is done when
+  a datapoint is added:
+  - a datapoint that becomes writable is exposed as a `number` (or a `select`
+    when it carries an enumeration) without being removed and added again;
+  - the range and the step of a `number` follow the description of the
+    controller;
+  - the enumeration values and the labels are refreshed, and a datapoint that
+    previously reported no option list is upgraded to a `select` as soon as the
+    controller reports one;
+  - the unit and the device class follow the description.
+- A configuration edited by hand is **never overwritten**. The integration keeps
+  a snapshot of what the device announced when the datapoint was configured, so
+  a field whose value differs from that snapshot was edited by the user and is
+  left alone; a value the device stops reporting (an option list, a range) is
+  kept as well, because replacing it with nothing would make the entity
+  unusable. Changes brought by the device are logged at info level.
+
+### Changed
+
+- The datapoint metadata is now derived from the device description in one
+  place, shared by the setup flow and the coordinator, so a datapoint is
+  exposed the same way whether it was just added or read back on a reload.
+
 ## [1.1.0] - 2026-09-17
 
 ### Added
@@ -74,5 +104,6 @@ setup to writing values back to the controller.
   `Texte de défaut`) are suffixed `#2`, `#3` … so the generated topic paths are
   unique and reproducible.
 
+[1.2.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.0
 [1.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.0

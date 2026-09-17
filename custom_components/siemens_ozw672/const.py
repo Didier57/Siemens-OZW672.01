@@ -71,6 +71,23 @@ DP_WRITE_ACCESS: Final = "write_access"
 DP_ADDRESS: Final = "address"
 DP_SUBKEY: Final = "subkey"
 
+# Fields that are derived from the description the OZW672 returns for a
+# datapoint. They are refreshed on every reload, except when they were edited
+# by the user in between (``DP_DEVICE`` keeps the last device values).
+DP_DEVICE: Final = "device"
+DEVICE_FIELDS: Final[tuple[str, ...]] = (
+    DP_NAME,
+    DP_PLATFORM,
+    DP_VALUE_TYPE,
+    DP_UNIT,
+    DP_DEVICE_CLASS,
+    DP_STATE_CLASS,
+    DP_OPTIONS,
+    DP_MIN_VALUE,
+    DP_MAX_VALUE,
+    DP_STEP,
+)
+
 # Values that mean "the controller has no value for this datapoint" (the
 # datapoint exists on the bus but no sensor/module is wired to it).
 INVALID_TOKENS: Final[frozenset[str]] = frozenset({"----", "---", "--", "-", "!"})

@@ -27,6 +27,8 @@ Etat/Etat du circuit de chauffage 1
 
 The numeric id is only a cached pointer kept in the config entry. On every setup — that is at each Home Assistant start, restart, reload and options change — the integration walks the OZW672 menu tree again, compares the topics with the stored ones and updates the ids before the first poll. Renamed/renumbered ids are logged, and a topic that disappeared from the plant is reported in the log so it can be removed.
 
+The same pass reads the **description** of every configured datapoint on the device and adapts the entity to what the controller announces now: a datapoint that became writable turns into a `number` (or a `select`), the range, the step, the unit and the enumeration values follow the description. A field you edited by hand in *Edit a datapoint* is never overwritten, and a value the device stops reporting is kept as it is. The changes are logged at info level.
+
 Two siblings sharing the same title (the OZW672 has a few, for example `Texte de défaut`) are suffixed `#2`, `#3` … in menu order, which makes the generated paths unique and reproducible.
 
 ## Features
@@ -35,6 +37,7 @@ Two siblings sharing the same title (the OZW672 has a few, for example `Texte de
 - **Plant device selection** — the OZW672 lists the controllers it is wired to; pick the one the entry is for.
 - **Choose your own datapoints** — the plant is browsed **topic after topic**: tick what you want on each screen, move to the next topic, come back when needed, and finish whenever you like. Works during setup and later from the options.
 - **Topic based identity** — ids are re-resolved against the topics at every reload, so they survive a regeneration of the OZW672 identifiers.
+- **Entities adapted on every reload** — the description of each configured datapoint is read again on the device, so the entity kind, the range, the step, the unit and the enumeration values follow the controller.
 - **Read datapoints as sensors** — temperatures, pressures, modulation, energy, operating hours, states and messages.
 - **Write datapoints as numbers** — writable numeric datapoints become `number` entities (unit, device class, range and step are detected from the device and can be adjusted).
 - **Enumerations** — turn an enumeration datapoint into a `select` entity pre-filled with the labels of the controller.

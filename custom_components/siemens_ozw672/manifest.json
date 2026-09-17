@@ -1,7 +1,9 @@
 {
   "domain": "siemens_ozw672",
   "name": "Siemens OZW672",
-  "codeowners": ["@Didier57"],
+  "codeowners": [
+    "@Didier57"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/Didier57/Siemens-OZW672.01",
@@ -9,5 +11,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/Didier57/Siemens-OZW672.01/issues",
   "requirements": [],
-  "version": "1.1.0"
+  "version": "1.2.0"
 }

@@ -46,8 +46,10 @@ from .const import (
     CONF_USERNAME,
     CONF_VERIFY_SSL,
     DEFAULT_SCAN_INTERVAL,
+    DEVICE_FIELDS,
     DOMAIN,
     DP_ADDRESS,
+    DP_DEVICE,
     DP_DEVICE_CLASS,
     DP_ID,
     DP_MAX_VALUE,
@@ -72,9 +74,8 @@ from .const import (
     TYPE_ENUMERATION,
     TYPE_NUMERIC,
     VALUE_TYPE_SELECTOR_TO_API,
-    guess_device_class,
-    guess_state_class,
 )
+from .coordinator import describe_datapoint
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -267,6 +268,17 @@ def _ordered_topics(walk: list[dict[str, Any]]) -> list[str]:
     return list(_group_topics(walk))
 
 
+def _device_snapshot(config: dict[str, Any]) -> dict[str, Any]:
+    """Return the device part of a datapoint configuration.
+
+    The snapshot remembers what the OZW672 announced when the datapoint was
+    configured. A field the user edited afterwards - a renamed entity, a
+    switched entity type, a custom range - stays different from the snapshot
+    and is therefore preserved when the description is read again on reload.
+    """
+    return {field: config.get(field) for field in DEVICE_FIELDS}
+
+
 def _selected_paths(
     items: list[dict[str, Any]], datapoints: dict[str, Any]
 ) -> list[str]:
@@ -315,53 +327,28 @@ def _build_datapoint(item: dict[str, Any], details: dict[str, Any]) -> dict[str,
     with the labels the controller uses, and anything else - read only values,
     states, fault messages, operating hours - becomes a read only entity. The
     platform and the metadata can still be changed afterwards in the options.
+
+    The same decision is taken again on every reload by the coordinator, which
+    reads the description of the datapoints of the entry and adopts what the
+    device announces; the values stored here are the ones the device reports
+    now, kept as ``DP_DEVICE`` so that a field edited by the user is never
+    overwritten.
     """
     datapoint_id = int(item[DP_ID])
-    value_type = str(details.get("type") or TYPE_NUMERIC)
-    unit = details.get("unit") or None
-    options = details.get("options") or {}
     write_access = bool(item.get(DP_WRITE_ACCESS))
-    name = str(details.get("name") or item.get(DP_NAME) or f"Datapoint {datapoint_id}")
-
-    if write_access and options:
-        platform = PLATFORM_SELECT
-        value_type = TYPE_ENUMERATION
-    elif write_access and value_type == TYPE_NUMERIC:
-        platform = PLATFORM_NUMBER
-    else:
-        platform = PLATFORM_SENSOR
-
-    if platform == PLATFORM_NUMBER:
-        state_class = None
-        min_value = details.get("min")
-        max_value = details.get("max")
-        step = details.get("resolution")
-        min_value = 0.0 if min_value is None else float(min_value)
-        max_value = 100.0 if max_value is None else float(max_value)
-        step = 0.5 if not step else float(step)
-    elif platform == PLATFORM_SELECT:
-        state_class = None
-        min_value = max_value = step = None
-    else:
-        state_class = guess_state_class(unit) if value_type == TYPE_NUMERIC else None
-        min_value = max_value = step = None
+    fresh = describe_datapoint(write_access, details)
 
     return {
         DP_ID: datapoint_id,
-        DP_NAME: name,
         DP_PATH: item.get(DP_PATH),
         DP_ADDRESS: item.get(DP_ADDRESS),
         DP_SUBKEY: item.get(DP_SUBKEY),
         DP_WRITE_ACCESS: write_access,
-        DP_PLATFORM: platform,
-        DP_VALUE_TYPE: value_type,
-        DP_UNIT: unit,
-        DP_DEVICE_CLASS: guess_device_class(unit),
-        DP_STATE_CLASS: state_class,
-        DP_OPTIONS: {str(key): label for key, label in options.items()} or None,
-        DP_MIN_VALUE: min_value,
-        DP_MAX_VALUE: max_value,
-        DP_STEP: step,
+        DP_NAME: str(
+            fresh.get(DP_NAME) or item.get(DP_NAME) or f"Datapoint {datapoint_id}"
+        ),
+        DP_DEVICE: fresh,
+        **{field: fresh.get(field) for field in DEVICE_FIELDS},
     }
 
 
@@ -1159,6 +1146,7 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
 
         if user_input is not None:
             datapoints[key] = _apply_datapoint_form(config, user_input)
+            datapoints[key][DP_DEVICE] = _device_snapshot(datapoints[key])
             return self._save()
 
         return self.async_show_form(
