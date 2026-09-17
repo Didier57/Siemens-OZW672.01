@@ -15,9 +15,31 @@
       },
       "device": {
         "title": "Select the plant device",
-        "description": "The OZW672 reports the devices it is wired to. Select the device to use. Datapoints are read from the OZW672 itself, so the selection identifies the plant in Home Assistant.",
+        "description": "The OZW672 reports the devices it is wired to. Select the controller to use. Datapoint identifiers are generated for the plant, so the selection identifies this installation in Home Assistant.",
         "data": {
           "device_id": "Device"
+        }
+      },
+      "datapoints": {
+        "title": "Datapoints of your installation",
+        "description": "A datapoint is identified by its topic in the controller and not by its numeric identifier: the OZW672 generates the identifiers for the plant it is wired to, and they change when the plant or the server parameters are refreshed. The identifier is checked again on every reload.\n\nAdd the datapoints you want to use, then finish.",
+        "menu_options": {
+          "add_datapoints": "Add datapoints",
+          "finish": "Finish"
+        }
+      },
+      "add_datapoints": {
+        "title": "Add datapoints",
+        "description": "Choose the topic of the controller to browse. The datapoints are grouped by topic, exactly as in the menu tree of the OZW672.",
+        "data": {
+          "topic": "Topic"
+        }
+      },
+      "pick": {
+        "title": "Select the datapoints",
+        "description": "Select the datapoints of this topic to add. Writable numeric datapoints become numbers, the others become sensors; the entity type can be changed afterwards in the options.",
+        "data": {
+          "datapoints": "Datapoints"
         }
       },
       "reauth_confirm": {
@@ -32,6 +54,7 @@
     "error": {
       "cannot_connect": "Failed to connect to the OZW672.",
       "invalid_auth": "Invalid username or password.",
+      "no_datapoints": "No datapoint was found on this device. Check that the OZW672 is wired to a controller and that the plant is online.",
       "unknown": "Unexpected error."
     },
     "abort": {
@@ -45,9 +68,9 @@
         "title": "Siemens OZW672 options",
         "menu_options": {
           "settings": "Polling settings",
-          "builtin_datapoints": "Enable / disable built-in datapoints",
-          "add_datapoint": "Add a custom datapoint",
-          "remove_datapoint": "Remove a custom datapoint"
+          "add_datapoints": "Add datapoints",
+          "remove_datapoints": "Remove datapoints",
+          "edit_datapoint": "Edit a datapoint"
         }
       },
       "settings": {
@@ -57,18 +80,37 @@
           "scan_interval": "Scan interval"
         }
       },
-      "builtin_datapoints": {
-        "title": "Built-in datapoints",
-        "description": "Select the datapoints that exist on your installation and that you want to poll. Datapoint identifiers are generated for the plant, so the built-in catalog only matches installations built around the same controller: deselect the datapoints your plant does not have (they would otherwise fail to read), and declare your own identifiers with 'Add a custom datapoint'.",
+      "add_datapoints": {
+        "title": "Add datapoints",
+        "description": "Choose the topic of the controller to browse. The datapoints are grouped by topic, exactly as in the menu tree of the OZW672.",
         "data": {
-          "disabled": "Disabled datapoints"
+          "topic": "Topic"
         }
       },
-      "add_datapoint": {
-        "title": "Add a custom datapoint",
-        "description": "Declare an extra datapoint of the OZW672 menutree. Leave enum_options empty for numeric datapoints, otherwise use a '1=Label, 2=Label' list.",
+      "pick": {
+        "title": "Select the datapoints",
+        "description": "Select the datapoints of this topic to add. Writable numeric datapoints become numbers, the others become sensors; the entity type can be changed afterwards with 'Edit a datapoint'.",
         "data": {
-          "datapoint_id": "Datapoint id",
+          "datapoints": "Datapoints"
+        }
+      },
+      "remove_datapoints": {
+        "title": "Remove datapoints",
+        "data": {
+          "datapoints": "Datapoints"
+        }
+      },
+      "edit_datapoint": {
+        "title": "Edit a datapoint",
+        "description": "Choose the datapoint to edit.",
+        "data": {
+          "key": "Datapoint"
+        }
+      },
+      "edit_datapoint_form": {
+        "title": "Edit a datapoint",
+        "description": "Datapoint: {path}",
+        "data": {
           "name": "Name",
           "platform": "Entity type",
           "value_type": "Value type",
@@ -80,19 +122,13 @@
           "max_value": "Maximum value",
           "step": "Step"
         }
-      },
-      "remove_datapoint": {
-        "title": "Remove a custom datapoint",
-        "data": {
-          "datapoints": "Datapoints"
-        }
       }
     },
     "error": {
-      "duplicate": "This datapoint is already configured."
+      "cannot_connect": "The OZW672 menu tree could not be read."
     },
     "abort": {
-      "no_custom_datapoints": "No custom datapoint has been declared yet."
+      "no_datapoints": "No datapoint is configured for this installation yet."
     }
   },
   "services": {

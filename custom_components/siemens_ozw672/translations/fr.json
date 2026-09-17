@@ -3,11 +3,11 @@
     "step": {
       "user": {
         "title": "Connexion au Siemens OZW672",
-        "description": "Saisissez les informations de connexion du serveur web OZW672.",
+        "description": "Saisissez les informations de connexion du serveur web de l'OZW672.",
         "data": {
           "host": "Hôte",
           "port": "Port",
-          "username": "Nom d'utilisateur",
+          "username": "Identifiant",
           "password": "Mot de passe",
           "use_https": "Utiliser HTTPS",
           "verify_ssl": "Vérifier le certificat SSL"
@@ -15,60 +15,102 @@
       },
       "device": {
         "title": "Sélection de l'appareil de l'installation",
-        "description": "L'OZW672 indique les appareils auxquels il est raccordé. Sélectionnez celui à utiliser. Les points de données sont lus directement dans l'OZW672 : cette sélection identifie l'installation dans Home Assistant.",
+        "description": "L'OZW672 indique les appareils auxquels il est raccordé. Sélectionnez le régulateur à utiliser. Les identifiants des datapoints sont générés pour l'installation, cette sélection identifie donc votre installation dans Home Assistant.",
         "data": {
           "device_id": "Appareil"
         }
       },
+      "datapoints": {
+        "title": "Datapoints de votre installation",
+        "description": "Un datapoint est identifié par son topic dans le régulateur et non par son identifiant numérique : l'OZW672 génère les identifiants pour l'installation à laquelle il est raccordé et ceux-ci changent lorsque l'installation ou les paramètres du serveur sont actualisés. L'identifiant est vérifié à nouveau à chaque rechargement.\n\nAjoutez les datapoints que vous souhaitez utiliser, puis terminez.",
+        "menu_options": {
+          "add_datapoints": "Ajouter des datapoints",
+          "finish": "Terminer"
+        }
+      },
+      "add_datapoints": {
+        "title": "Ajouter des datapoints",
+        "description": "Choisissez le topic du régulateur à parcourir. Les datapoints sont classés par topic, exactement comme dans l'arborescence de l'OZW672.",
+        "data": {
+          "topic": "Topic"
+        }
+      },
+      "pick": {
+        "title": "Sélection des datapoints",
+        "description": "Sélectionnez les datapoints de ce topic à ajouter. Les datapoints numériques inscriptibles deviennent des nombres, les autres des capteurs ; le type d'entité peut être modifié ensuite dans les options.",
+        "data": {
+          "datapoints": "Datapoints"
+        }
+      },
       "reauth_confirm": {
-        "title": "Ré-authentification auprès de l'OZW672",
+        "title": "Nouvelle authentification sur l'OZW672",
         "description": "L'OZW672 a refusé les identifiants enregistrés. Mettez-les à jour ci-dessous.",
         "data": {
-          "username": "Nom d'utilisateur",
+          "username": "Identifiant",
           "password": "Mot de passe"
         }
       }
     },
     "error": {
       "cannot_connect": "Échec de la connexion à l'OZW672.",
-      "invalid_auth": "Nom d'utilisateur ou mot de passe invalide.",
+      "invalid_auth": "Identifiant ou mot de passe incorrect.",
+      "no_datapoints": "Aucun datapoint n'a été trouvé sur cet appareil. Vérifiez que l'OZW672 est raccordé à un régulateur et que l'installation est en ligne.",
       "unknown": "Erreur inattendue."
     },
     "abort": {
       "already_configured": "Cet OZW672 est déjà configuré.",
-      "reauth_successful": "La ré-authentification a réussi."
+      "reauth_successful": "La nouvelle authentification a réussi."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Options du Siemens OZW672",
+        "title": "Options Siemens OZW672",
         "menu_options": {
           "settings": "Paramètres d'interrogation",
-          "builtin_datapoints": "Activer / désactiver les points de données intégrés",
-          "add_datapoint": "Ajouter un point de données personnalisé",
-          "remove_datapoint": "Supprimer un point de données personnalisé"
+          "add_datapoints": "Ajouter des datapoints",
+          "remove_datapoints": "Supprimer des datapoints",
+          "edit_datapoint": "Modifier un datapoint"
         }
       },
       "settings": {
         "title": "Paramètres d'interrogation",
-        "description": "Fréquence de lecture des points de données de l'OZW672.",
+        "description": "Fréquence de lecture des datapoints de l'OZW672.",
         "data": {
           "scan_interval": "Intervalle d'interrogation"
         }
       },
-      "builtin_datapoints": {
-        "title": "Points de données intégrés",
-        "description": "Sélectionnez les points de données présents sur votre installation et que vous souhaitez interroger. Les identifiants des points de données sont générés pour chaque installation : le catalogue intégré ne correspond donc qu'aux installations construites autour du même régulateur. Décochez les points que votre installation ne possède pas (leur lecture échouerait sinon) et déclarez vos propres identifiants avec « Ajouter un point de données personnalisé ».",
+      "add_datapoints": {
+        "title": "Ajouter des datapoints",
+        "description": "Choisissez le topic du régulateur à parcourir. Les datapoints sont classés par topic, exactement comme dans l'arborescence de l'OZW672.",
         "data": {
-          "disabled": "Points de données désactivés"
+          "topic": "Topic"
         }
       },
-      "add_datapoint": {
-        "title": "Ajouter un point de données personnalisé",
-        "description": "Déclarez un point de données supplémentaire de l'arborescence de l'OZW672. Laissez enum_options vide pour un point numérique, sinon utilisez une liste du type « 1=Libellé, 2=Libellé ».",
+      "pick": {
+        "title": "Sélection des datapoints",
+        "description": "Sélectionnez les datapoints de ce topic à ajouter. Les datapoints numériques inscriptibles deviennent des nombres, les autres des capteurs ; le type d'entité peut être modifié ensuite avec « Modifier un datapoint ».",
         "data": {
-          "datapoint_id": "Identifiant du point de données",
+          "datapoints": "Datapoints"
+        }
+      },
+      "remove_datapoints": {
+        "title": "Supprimer des datapoints",
+        "data": {
+          "datapoints": "Datapoints"
+        }
+      },
+      "edit_datapoint": {
+        "title": "Modifier un datapoint",
+        "description": "Choisissez le datapoint à modifier.",
+        "data": {
+          "key": "Datapoint"
+        }
+      },
+      "edit_datapoint_form": {
+        "title": "Modifier un datapoint",
+        "description": "Datapoint : {path}",
+        "data": {
           "name": "Nom",
           "platform": "Type d'entité",
           "value_type": "Type de valeur",
@@ -80,33 +122,27 @@
           "max_value": "Valeur maximale",
           "step": "Pas"
         }
-      },
-      "remove_datapoint": {
-        "title": "Supprimer un point de données personnalisé",
-        "data": {
-          "datapoints": "Points de données"
-        }
       }
     },
     "error": {
-      "duplicate": "Ce point de données est déjà configuré."
+      "cannot_connect": "L'arborescence de l'OZW672 n'a pas pu être lue."
     },
     "abort": {
-      "no_custom_datapoints": "Aucun point de données personnalisé n'a encore été déclaré."
+      "no_datapoints": "Aucun datapoint n'est encore configuré pour cette installation."
     }
   },
   "services": {
     "write_datapoint": {
-      "name": "Écrire un point de données",
-      "description": "Écrit une valeur dans un point de données arbitraire d'un appareil Siemens OZW672.",
+      "name": "Écrire un datapoint",
+      "description": "Écrit une valeur dans un datapoint quelconque d'un appareil Siemens OZW672.",
       "fields": {
         "entry_id": {
           "name": "Entrée de configuration",
-          "description": "Entrée de configuration OZW672 cible. Facultatif s'il n'y en a qu'une."
+          "description": "Entrée de configuration OZW672 ciblée. Facultatif s'il n'y en a qu'une."
         },
         "datapoint_id": {
-          "name": "Identifiant du point de données",
-          "description": "Identifiant numérique du point de données dans l'arborescence de l'OZW672."
+          "name": "Identifiant du datapoint",
+          "description": "Identifiant numérique du datapoint dans l'arborescence de l'OZW672."
         },
         "value": {
           "name": "Valeur",
@@ -114,7 +150,7 @@
         },
         "value_type": {
           "name": "Type de valeur",
-          "description": "Type du point de données OZW672. Utilisez Enumeration pour les points de type interrupteur."
+          "description": "Type du datapoint OZW672. Utilisez Enumeration pour les datapoints de type commutateur."
         }
       }
     }
@@ -130,7 +166,7 @@
     "platform": {
       "options": {
         "sensor": "Capteur (lecture seule)",
-        "number": "Nombre (modifiable)",
+        "number": "Nombre (inscriptible)",
         "select": "Liste (énumération)"
       }
     },

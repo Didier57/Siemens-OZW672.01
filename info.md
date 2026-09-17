@@ -6,11 +6,14 @@ Local Home Assistant integration for Siemens heating controllers exposed through
 ## Highlights
 
 - 100% UI configuration, no YAML.
-- Device selection: pick the controller the OZW672 is wired to.
-- Sensors: outside, room, flow, heat pump and DHW temperatures, hydraulic pressure,
-  compressor modulation, thermal energy, operating hours, states and fault message.
-- Writable setpoints: DHW normal/reduced and cooling comfort setpoint.
-- Declare any extra datapoint of the OZW672 menutree from the options flow.
+- Plant device selection: pick the controller the OZW672 is wired to.
+- **Datapoints are identified by their topic**, because the OZW672 generates the
+  numeric ids for each installation; the ids are checked and updated on every reload.
+- Browse the menu tree **classified by topic** and pick the datapoints you want,
+  during setup and from the options.
+- Read-only datapoints become sensors (temperatures, pressure, modulation, energy,
+  operating hours, states, messages), writable numeric datapoints become numbers,
+  enumerations can become selects.
 - Generic `siemens_ozw672.write_datapoint` service.
 - Automatic session renewal and re-authentication support.
 
@@ -18,11 +21,11 @@ Local Home Assistant integration for Siemens heating controllers exposed through
 
 1. Install through HACS (category *Integration*) and restart Home Assistant.
 2. **Settings → Devices & services → Add integration → Siemens OZW672**.
-3. Enter the IP address and the credentials of the OZW672 web account, then select
-   the plant device.
+3. Enter the IP address and the credentials of the OZW672 web account, select the
+   plant device, then pick your datapoints by topic.
 
 See the [README](https://github.com/Didier57/Siemens-OZW672.01#readme) for the full
-documentation, the datapoint table and troubleshooting tips.
+documentation and troubleshooting tips.
 
 ---
 
@@ -33,9 +36,10 @@ par le serveur web **OZW672**.
 
 - Configuration entièrement via l'interface, sans YAML.
 - Choix de l'appareil de l'installation parmi ceux annoncés par l'OZW672.
-- Capteurs de températures (extérieure, ambiante, départ, PAC, ECS), pression
-  hydraulique, modulation compresseur, énergie, heures de fonctionnement, états et
-  message de défaut.
-- Consignes modifiables : ECS nominale/réduite, confort rafraîchissement.
-- Ajout de n'importe quel point de données de l'arborescence via le flux d'options.
+- **Les points de données sont identifiés par leur topic** : l'OZW672 génère les
+  identifiants pour chaque installation et les vérifie à chaque rechargement.
+- Parcours de l'arborescence **classée par topic** pour choisir librement ses points
+  de données, à l'installation comme depuis les options.
+- Capteurs en lecture, entités `number` pour les consignes inscriptibles, `select`
+  pour les énumérations.
 - Service générique `siemens_ozw672.write_datapoint`.

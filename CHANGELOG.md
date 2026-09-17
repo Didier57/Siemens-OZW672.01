@@ -4,6 +4,60 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-09-17
+
+### Added
+
+- **Datapoints are now identified by their topic path** instead of their numeric
+  id. The OZW672 generates the datapoint identifiers for the plant it is wired
+  to, so they differ between installations and can change on the same
+  installation when the server parameters are refreshed. Every datapoint selected
+  by the user is stored with its topic, and the numeric id is only a cached
+  pointer.
+- **Identifiers are re-resolved on every setup**: at each Home Assistant start,
+  restart, reload and options change, the integration walks the menu tree of the
+  plant, compares the topics with the stored ones and updates the ids. A changed
+  id is logged, a topic that disappeared is reported so it can be removed.
+- **Free datapoint selection classified by topic**, both in the setup flow and in
+  the options: choose a topic of the plant, tick the datapoints it contains, and
+  the entity type, the unit, the device class and the state class are guessed
+  from the device answer.
+- **Edit datapoint** option to adjust the name, entity type, value type,
+  enumeration options, unit, device class, state class and min/max/step.
+- `OZW672Client.async_walk_datapoints()` (breadth-first menu tree walk, optional
+  topic filter) and `OZW672Client.async_read_datapoint_details()`.
+- `guess_device_class()` / `guess_state_class()` unit helpers, and support for
+  the `RadioButton` and `TimeOfDay` datapoint types.
+
+### Changed
+
+- **The built-in datapoint catalog has been removed.** A shipped list of ids can
+  not match every installation, which is exactly what made entities stay
+  `unknown` on other plants. Datapoints are now declared per entry.
+- Sibling nodes sharing a title (the controller has a few, for example
+  `Texte de défaut`) are suffixed `#2`, `#3` … at tree walking time so the
+  generated topic paths are unique and reproducible.
+- Entity names are disambiguated with the parent topic when two selected
+  datapoints of the same plant share a name, and the unique id is now based on
+  the topic, so entity history survives an id change by the OZW672.
+- Configuration is a single flow: connection, plant device, then datapoint
+  selection (with an option to finish without any datapoint and add them later).
+- Reading a datapoint no longer raises on an unexpected payload; the device error
+  message is surfaced in the log instead of silently returning an empty
+  `Data` object.
+
+### Removed
+
+- The built-in catalog and the `Enable / disable built-in datapoints` option.
+- `OPERATING_MODES` and the hard-coded enumeration lists.
+
+### Migration
+
+- Config entries created with 1.x are migrated to version 2: custom datapoints
+  declared with 1.x are kept as `id:<n>` entries, and the datapoints of the old
+  built-in catalog are removed. Re-select them by topic in
+  **Configure → Add datapoints**.
+
 ## [1.1.0] - 2026-09-17
 
 ### Added
@@ -85,6 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HACS and hassfest validation workflows.
 - English and French translations.
 
+[2.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v2.0.0
 [1.1.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.1.0
 [1.0.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.1

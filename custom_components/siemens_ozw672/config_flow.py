@@ -33,10 +33,9 @@ from .api import (
     OZW672Error,
 )
 from .const import (
-    CONF_CUSTOM_DATAPOINTS,
+    CONF_DATAPOINTS,
     CONF_DEVICE_ID,
     CONF_DEVICE_NAME,
-    CONF_DISABLED_DATAPOINTS,
     CONF_GATEWAY_FIRMWARE,
     CONF_GATEWAY_SERIAL,
     CONF_HOST,
@@ -46,9 +45,23 @@ from .const import (
     CONF_USE_HTTPS,
     CONF_USERNAME,
     CONF_VERIFY_SSL,
-    DATAPOINTS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    DP_ADDRESS,
+    DP_DEVICE_CLASS,
+    DP_ID,
+    DP_MAX_VALUE,
+    DP_MIN_VALUE,
+    DP_NAME,
+    DP_OPTIONS,
+    DP_PATH,
+    DP_PLATFORM,
+    DP_STATE_CLASS,
+    DP_STEP,
+    DP_SUBKEY,
+    DP_UNIT,
+    DP_VALUE_TYPE,
+    DP_WRITE_ACCESS,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
     PLATFORM_NUMBER,
@@ -59,14 +72,29 @@ from .const import (
     TYPE_ENUMERATION,
     TYPE_NUMERIC,
     VALUE_TYPE_SELECTOR_TO_API,
+    guess_device_class,
+    guess_state_class,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-MENU_ADD_DATAPOINT = "add_datapoint"
-MENU_BUILTIN_DATAPOINTS = "builtin_datapoints"
-MENU_REMOVE_DATAPOINT = "remove_datapoint"
+MENU_ADD_DATAPOINTS = "add_datapoints"
+MENU_REMOVE_DATAPOINTS = "remove_datapoints"
+MENU_EDIT_DATAPOINT = "edit_datapoint"
 MENU_SETTINGS = "settings"
+MENU_FINISH = "finish"
+
+TOPIC_FIELD = "topic"
+DATAPOINTS_FIELD = "datapoints"
+KEY_FIELD = "key"
+ENUM_OPTIONS_FIELD = "enum_options"
+
+ROOT_TOPIC_LABEL = "(root)"
+
+
+def datapoint_key(config: dict[str, Any]) -> str:
+    """Return the stable storage key of a datapoint configuration."""
+    return str(config.get(DP_PATH) or f"id:{config.get(DP_ID)}")
 
 
 def _normalise(user_input: dict[str, Any]) -> dict[str, Any]:
@@ -141,6 +169,135 @@ async def _async_probe(
         await client.async_logout()
 
 
+async def _async_walk(
+    hass: HomeAssistant, data: dict[str, Any], device_id: int
+) -> list[dict[str, Any]]:
+    """Enumerate every datapoint of a device with its topic path."""
+    client = _client(hass, data)
+    await client.async_login()
+    try:
+        return await client.async_walk_datapoints(device_id)
+    finally:
+        await client.async_logout()
+
+
+async def _async_describe(
+    hass: HomeAssistant, data: dict[str, Any], datapoint_ids: list[int]
+) -> dict[int, dict[str, Any]]:
+    """Read the type and the unit of freshly selected datapoints."""
+    details: dict[int, dict[str, Any]] = {
+        datapoint_id: {} for datapoint_id in datapoint_ids
+    }
+    if not datapoint_ids:
+        return details
+
+    client = _client(hass, data)
+    await client.async_login()
+    try:
+        for datapoint_id in datapoint_ids:
+            try:
+                details[datapoint_id] = await client.async_read_datapoint_details(
+                    datapoint_id
+                )
+            except OZW672Error as err:
+                _LOGGER.warning("Cannot read datapoint %s: %s", datapoint_id, err)
+    finally:
+        await client.async_logout()
+    return details
+
+
+def _topic_of(path: str) -> str:
+    """Return the topic a datapoint path belongs to."""
+    return path.rsplit("/", 1)[0] if "/" in path else ROOT_TOPIC_LABEL
+
+
+def _group_topics(walk: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """Group the enumerated datapoints by their topic."""
+    topics: dict[str, list[dict[str, Any]]] = {}
+    for item in walk:
+        topics.setdefault(_topic_of(str(item.get(DP_PATH) or "")), []).append(item)
+    return topics
+
+
+def _topic_selector(walk: list[dict[str, Any]]) -> SelectSelector:
+    """Build a selector listing the topics of the plant."""
+    topics = _group_topics(walk)
+    options = [
+        SelectOptionDict(
+            value=parent,
+            label=f"{parent} ({len(items)})",
+        )
+        for parent, items in sorted(topics.items())
+    ]
+    return SelectSelector(
+        SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN)
+    )
+
+
+def _datapoint_selector(items: list[dict[str, Any]]) -> SelectSelector:
+    """Build a multi-select listing the datapoints of one topic."""
+    options = [
+        SelectOptionDict(
+            value=str(item.get(DP_PATH)),
+            label=f"{item.get(DP_NAME)}  [{item.get(DP_ID)}]",
+        )
+        for item in items
+    ]
+    return SelectSelector(
+        SelectSelectorConfig(
+            options=options, multiple=True, mode=SelectSelectorMode.LIST
+        )
+    )
+
+
+def _build_datapoint(item: dict[str, Any], details: dict[str, Any]) -> dict[str, Any]:
+    """Turn a menu tree entry into a stored datapoint configuration.
+
+    The device only tells us the value type and the unit of a datapoint, not
+    whether it is meant to be a setpoint: writable numeric datapoints are
+    exposed as numbers, everything else (enumerations, radio buttons, time of
+    day) is exposed as a text sensor. The platform can be changed afterwards
+    in the options.
+    """
+    datapoint_id = int(item[DP_ID])
+    value_type = str(details.get("type") or TYPE_NUMERIC)
+    unit = details.get("unit") or None
+    write_access = bool(item.get(DP_WRITE_ACCESS))
+    platform = (
+        PLATFORM_NUMBER
+        if write_access and value_type == TYPE_NUMERIC
+        else PLATFORM_SENSOR
+    )
+
+    device_class = guess_device_class(unit)
+    if platform == PLATFORM_NUMBER:
+        state_class = None
+        min_value: float | None = 0.0
+        max_value: float | None = 100.0
+        step: float | None = 0.5
+    else:
+        state_class = guess_state_class(unit) if value_type == TYPE_NUMERIC else None
+        min_value = max_value = step = None
+
+    return {
+        DP_ID: datapoint_id,
+        DP_NAME: str(item.get(DP_NAME) or f"Datapoint {datapoint_id}"),
+        DP_PATH: item.get(DP_PATH),
+        DP_ADDRESS: item.get(DP_ADDRESS),
+        DP_SUBKEY: item.get(DP_SUBKEY),
+        DP_WRITE_ACCESS: write_access,
+        DP_PLATFORM: platform,
+        DP_VALUE_TYPE: value_type,
+        DP_UNIT: unit,
+        DP_DEVICE_CLASS: device_class,
+        DP_STATE_CLASS: state_class,
+        DP_OPTIONS: None,
+        DP_MIN_VALUE: min_value,
+        DP_MAX_VALUE: max_value,
+        DP_STEP: step,
+    }
+
+
 def _user_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     """Build the connection schema."""
     defaults = defaults or {}
@@ -192,22 +349,37 @@ def _parse_enum_options(raw: str | None) -> dict[int, str] | None:
     return options or None
 
 
-def _datapoint_schema() -> vol.Schema:
-    """Build the schema used to declare a custom datapoint."""
+def _format_enum_options(options: Any) -> str:
+    """Render a stored enumeration mapping as '1=Label, 2=Label'."""
+    if not isinstance(options, dict):
+        return ""
+    return ", ".join(f"{key}={label}" for key, label in options.items())
+
+
+def _selector_value_type(value_type: str | None) -> str:
+    """Return the selector value matching a device value type."""
+    if value_type == TYPE_ENUMERATION:
+        return SELECTOR_VALUE_TYPE_ENUMERATION
+    return SELECTOR_VALUE_TYPE_NUMERIC
+
+
+def _datapoint_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    """Build the schema used to describe or edit a datapoint."""
+    defaults = defaults or {}
+
+    def number_field(key: str) -> vol.Marker:
+        if defaults.get(key) is None:
+            return vol.Optional(key)
+        return vol.Optional(key, description={"suggested_value": defaults[key]})
+
     return vol.Schema(
         {
-            vol.Required("datapoint_id"): NumberSelector(
-                NumberSelectorConfig(
-                    min=1,
-                    max=999999,
-                    step=1,
-                    mode=NumberSelectorMode.BOX,
-                )
-            ),
-            vol.Required("name"): TextSelector(
+            vol.Required(DP_NAME, default=defaults.get(DP_NAME, "")): TextSelector(
                 TextSelectorConfig(type=TextSelectorType.TEXT)
             ),
-            vol.Required("platform", default=PLATFORM_SENSOR): SelectSelector(
+            vol.Required(
+                DP_PLATFORM, default=defaults.get(DP_PLATFORM, PLATFORM_SENSOR)
+            ): SelectSelector(
                 SelectSelectorConfig(
                     options=[PLATFORM_SENSOR, PLATFORM_NUMBER, PLATFORM_SELECT],
                     mode=SelectSelectorMode.DROPDOWN,
@@ -215,7 +387,8 @@ def _datapoint_schema() -> vol.Schema:
                 )
             ),
             vol.Required(
-                "value_type", default=SELECTOR_VALUE_TYPE_NUMERIC
+                DP_VALUE_TYPE,
+                default=_selector_value_type(defaults.get(DP_VALUE_TYPE)),
             ): SelectSelector(
                 SelectSelectorConfig(
                     options=[
@@ -226,35 +399,71 @@ def _datapoint_schema() -> vol.Schema:
                     translation_key="value_type",
                 )
             ),
-            vol.Optional("unit", default=""): TextSelector(
+            vol.Optional(DP_UNIT, default=defaults.get(DP_UNIT) or ""): TextSelector(
                 TextSelectorConfig(type=TextSelectorType.TEXT)
             ),
-            vol.Optional("device_class", default=""): TextSelector(
-                TextSelectorConfig(type=TextSelectorType.TEXT)
-            ),
-            vol.Optional("state_class", default=""): TextSelector(
-                TextSelectorConfig(type=TextSelectorType.TEXT)
-            ),
-            vol.Optional("enum_options", default=""): TextSelector(
-                TextSelectorConfig(type=TextSelectorType.TEXT)
-            ),
-            vol.Optional("min_value"): NumberSelector(
+            vol.Optional(
+                DP_DEVICE_CLASS, default=defaults.get(DP_DEVICE_CLASS) or ""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                DP_STATE_CLASS, default=defaults.get(DP_STATE_CLASS) or ""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                ENUM_OPTIONS_FIELD,
+                default=_format_enum_options(defaults.get(DP_OPTIONS)),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            number_field(DP_MIN_VALUE): NumberSelector(
                 NumberSelectorConfig(mode=NumberSelectorMode.BOX, step="any")
             ),
-            vol.Optional("max_value"): NumberSelector(
+            number_field(DP_MAX_VALUE): NumberSelector(
                 NumberSelectorConfig(mode=NumberSelectorMode.BOX, step="any")
             ),
-            vol.Optional("step"): NumberSelector(
+            number_field(DP_STEP): NumberSelector(
                 NumberSelectorConfig(mode=NumberSelectorMode.BOX, step="any")
             ),
         }
     )
 
 
+def _apply_datapoint_form(
+    config: dict[str, Any], user_input: dict[str, Any]
+) -> dict[str, Any]:
+    """Merge an (edited) datapoint form into a stored configuration."""
+    enum_options = _parse_enum_options(user_input.get(ENUM_OPTIONS_FIELD))
+    platform = user_input[DP_PLATFORM]
+    if enum_options and platform == PLATFORM_SENSOR:
+        platform = PLATFORM_SELECT
+    value_type = VALUE_TYPE_SELECTOR_TO_API.get(
+        str(user_input[DP_VALUE_TYPE]), TYPE_NUMERIC
+    )
+    updated = dict(config)
+    updated.update(
+        {
+            DP_NAME: user_input[DP_NAME],
+            DP_PLATFORM: platform,
+            DP_VALUE_TYPE: (
+                TYPE_ENUMERATION
+                if enum_options or value_type == TYPE_ENUMERATION
+                else value_type
+            ),
+            DP_UNIT: user_input.get(DP_UNIT) or None,
+            DP_DEVICE_CLASS: user_input.get(DP_DEVICE_CLASS) or None,
+            DP_STATE_CLASS: user_input.get(DP_STATE_CLASS) or None,
+            DP_OPTIONS: {str(key): label for key, label in enum_options.items()}
+            if enum_options
+            else None,
+            DP_MIN_VALUE: user_input.get(DP_MIN_VALUE),
+            DP_MAX_VALUE: user_input.get(DP_MAX_VALUE),
+            DP_STEP: user_input.get(DP_STEP),
+        }
+    )
+    return updated
+
+
 class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the configuration flow."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         """Initialise the flow."""
@@ -262,10 +471,13 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
         self._connection: dict[str, Any] = {}
         self._devices: list[dict[str, Any]] = []
         self._gateway: dict[str, Any] = {}
+        self._walk: list[dict[str, Any]] = []
+        self._selection: dict[str, dict[str, Any]] = {}
+        self._device_id: int | None = None
+        self._device_name: str | None = None
+        self._topic: str = ""
 
-    def _async_create_entry(
-        self, device_id: int | None = None, device_name: str | None = None
-    ) -> FlowResult:
+    def _async_create_entry(self) -> FlowResult:
         """Create the config entry for the connection and the chosen device."""
         data = dict(self._connection)
         firmware = self._gateway.get("FwVersion")
@@ -274,12 +486,19 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
             data[CONF_GATEWAY_FIRMWARE] = str(firmware)
         if serial:
             data[CONF_GATEWAY_SERIAL] = str(serial)
-        if device_id is not None:
-            data[CONF_DEVICE_ID] = int(device_id)
-        if device_name:
-            data[CONF_DEVICE_NAME] = device_name
-        title = device_name or data[CONF_HOST]
-        return self.async_create_entry(title=title, data=data)
+        if self._device_id is not None:
+            data[CONF_DEVICE_ID] = int(self._device_id)
+        if self._device_name:
+            data[CONF_DEVICE_NAME] = self._device_name
+        title = self._device_name or data[CONF_HOST]
+        return self.async_create_entry(
+            title=title,
+            data=data,
+            options={
+                CONF_DATAPOINTS: self._selection,
+                CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+            },
+        )
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -326,17 +545,33 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
 
         A single OZW672 usually serves one controller, but it can also be
         wired to several controllers on the same bus. Datapoint identifiers
-        depend on the plant, so the device list is read from the menutree of
-        the OZW672 itself.
+        depend on the plant, so the menu tree of the selected controller is
+        read to enumerate the datapoints it provides.
         """
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            raw_id = user_input[CONF_DEVICE_ID]
-            name = None
-            for device in self._devices:
-                if str(device["id"]) == str(raw_id):
-                    name = device["name"]
-                    break
-            return self._async_create_entry(int(raw_id), name)
+            raw_id = int(user_input[CONF_DEVICE_ID])
+            name = next(
+                (device["name"] for device in self._devices if device["id"] == raw_id),
+                None,
+            )
+            try:
+                walk = await _async_walk(self.hass, self._connection, raw_id)
+            except OZW672Error as err:
+                _LOGGER.error("Cannot read the OZW672 menu tree: %s", err)
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected error while reading the OZW672 tree")
+                errors["base"] = "unknown"
+            else:
+                if not walk:
+                    errors["base"] = "no_datapoints"
+                else:
+                    self._device_id = raw_id
+                    self._device_name = name
+                    self._walk = walk
+                    return await self.async_step_datapoints()
 
         return self.async_show_form(
             step_id="device",
@@ -355,7 +590,64 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
                 }
             ),
+            errors=errors,
         )
+
+    async def async_step_datapoints(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Show the datapoint selection menu."""
+        return self.async_show_menu(
+            step_id="datapoints",
+            menu_options=[MENU_ADD_DATAPOINTS, MENU_FINISH],
+        )
+
+    async def async_step_add_datapoints(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Pick the topic to browse."""
+        if user_input is not None:
+            self._topic = str(user_input[TOPIC_FIELD])
+            return await self.async_step_pick()
+
+        return self.async_show_form(
+            step_id=MENU_ADD_DATAPOINTS,
+            data_schema=vol.Schema(
+                {vol.Required(TOPIC_FIELD): _topic_selector(self._walk)}
+            ),
+        )
+
+    async def async_step_pick(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Add the datapoints of the selected topic."""
+        items = _group_topics(self._walk).get(self._topic, [])
+
+        if user_input is not None:
+            chosen = {str(path) for path in user_input.get(DATAPOINTS_FIELD, [])}
+            selected = [item for item in items if str(item.get(DP_PATH)) in chosen]
+            details = await _async_describe(
+                self.hass,
+                self._connection,
+                [int(item[DP_ID]) for item in selected],
+            )
+            for item in selected:
+                config = _build_datapoint(item, details.get(int(item[DP_ID]), {}))
+                self._selection[datapoint_key(config)] = config
+            return await self.async_step_datapoints()
+
+        return self.async_show_form(
+            step_id="pick",
+            data_schema=vol.Schema(
+                {vol.Optional(DATAPOINTS_FIELD): _datapoint_selector(items)}
+            ),
+        )
+
+    async def async_step_finish(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Create the entry with the selected datapoints."""
+        return self._async_create_entry()
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
         """Start a re-authentication."""
@@ -420,6 +712,28 @@ class SiemensOZW672ConfigFlow(ConfigFlow, domain=DOMAIN):
 class SiemensOZW672OptionsFlow(OptionsFlow):
     """Handle the options flow."""
 
+    def __init__(self) -> None:
+        """Initialise the flow."""
+        self._walk: list[dict[str, Any]] = []
+        self._topic: str = ""
+
+    @property
+    def _datapoints(self) -> dict[str, Any]:
+        """Return the datapoints stored in the options."""
+        return dict(self.config_entry.options.get(CONF_DATAPOINTS) or {})
+
+    async def _async_walk_tree(self) -> None:
+        """Read the menu tree of the configured controller."""
+        try:
+            self._walk = await _async_walk(
+                self.hass,
+                dict(self.config_entry.data),
+                int(self.config_entry.data[CONF_DEVICE_ID]),
+            )
+        except OZW672Error as err:
+            _LOGGER.error("Cannot read the OZW672 menu tree: %s", err)
+            self._walk = []
+
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -428,53 +742,10 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
             step_id="init",
             menu_options=[
                 MENU_SETTINGS,
-                MENU_BUILTIN_DATAPOINTS,
-                MENU_ADD_DATAPOINT,
-                MENU_REMOVE_DATAPOINT,
+                MENU_ADD_DATAPOINTS,
+                MENU_REMOVE_DATAPOINTS,
+                MENU_EDIT_DATAPOINT,
             ],
-        )
-
-    async def async_step_builtin_datapoints(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Enable or disable the datapoints of the built-in catalog.
-
-        The catalog matches the reference installation only, so datapoints that
-        do not exist on another plant have to be disabled before they can be
-        replaced by custom ones.
-        """
-        if user_input is not None:
-            options = {
-                **self.config_entry.options,
-                CONF_DISABLED_DATAPOINTS: list(user_input.get("disabled", [])),
-            }
-            return self.async_create_entry(data=options)
-
-        choices = [
-            SelectOptionDict(
-                value=str(datapoint.id),
-                label=f"{datapoint.name} (id {datapoint.id})",
-            )
-            for datapoint in DATAPOINTS
-        ]
-        current = [
-            str(raw_id)
-            for raw_id in self.config_entry.options.get(CONF_DISABLED_DATAPOINTS, [])
-            or []
-        ]
-        return self.async_show_form(
-            step_id=MENU_BUILTIN_DATAPOINTS,
-            data_schema=vol.Schema(
-                {
-                    vol.Optional("disabled", default=current): SelectSelector(
-                        SelectSelectorConfig(
-                            options=choices,
-                            multiple=True,
-                            mode=SelectSelectorMode.LIST,
-                        )
-                    )
-                }
-            ),
         )
 
     async def async_step_settings(
@@ -505,93 +776,158 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
             ),
         )
 
-    async def async_step_add_datapoint(
+    async def async_step_add_datapoints(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Declare an extra datapoint."""
-        errors: dict[str, str] = {}
-        custom: dict[str, Any] = dict(
-            self.config_entry.options.get(CONF_CUSTOM_DATAPOINTS, {}) or {}
-        )
+        """Pick the topic to browse."""
+        if not self._walk:
+            await self._async_walk_tree()
+        if not self._walk:
+            return self.async_show_form(
+                step_id=MENU_ADD_DATAPOINTS,
+                data_schema=vol.Schema({}),
+                errors={"base": "cannot_connect"},
+            )
 
         if user_input is not None:
-            datapoint_id = str(int(user_input["datapoint_id"]))
-            disabled = {
-                str(raw_id)
-                for raw_id in self.config_entry.options.get(
-                    CONF_DISABLED_DATAPOINTS, []
-                )
-                or []
-            }
-            known = {str(item.id) for item in DATAPOINTS} - disabled
-            if datapoint_id in custom or datapoint_id in known:
-                errors["datapoint_id"] = "duplicate"
-            else:
-                enum_options = _parse_enum_options(user_input.get("enum_options"))
-                platform = user_input["platform"]
-                if enum_options and platform == PLATFORM_SENSOR:
-                    platform = PLATFORM_SELECT
-                value_type = VALUE_TYPE_SELECTOR_TO_API.get(
-                    str(user_input["value_type"]), TYPE_NUMERIC
-                )
-                custom[datapoint_id] = {
-                    "name": user_input["name"],
-                    "platform": platform,
-                    "value_type": (TYPE_ENUMERATION if enum_options else value_type),
-                    "unit": user_input.get("unit") or None,
-                    "device_class": user_input.get("device_class") or None,
-                    "state_class": user_input.get("state_class") or None,
-                    "options": enum_options,
-                    "min_value": user_input.get("min_value"),
-                    "max_value": user_input.get("max_value"),
-                    "step": user_input.get("step"),
-                }
-                options = {
-                    **self.config_entry.options,
-                    CONF_CUSTOM_DATAPOINTS: custom,
-                }
-                return self.async_create_entry(data=options)
+            self._topic = str(user_input[TOPIC_FIELD])
+            return await self.async_step_pick()
 
         return self.async_show_form(
-            step_id=MENU_ADD_DATAPOINT,
-            data_schema=_datapoint_schema(),
-            errors=errors,
+            step_id=MENU_ADD_DATAPOINTS,
+            data_schema=vol.Schema(
+                {vol.Required(TOPIC_FIELD): _topic_selector(self._walk)}
+            ),
         )
 
-    async def async_step_remove_datapoint(
+    async def async_step_pick(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Remove previously declared datapoints."""
-        custom: dict[str, Any] = dict(
-            self.config_entry.options.get(CONF_CUSTOM_DATAPOINTS, {}) or {}
-        )
-        if not custom:
-            return self.async_abort(reason="no_custom_datapoints")
+        """Add the datapoints of the selected topic to the entry."""
+        items = _group_topics(self._walk).get(self._topic, [])
+        datapoints = self._datapoints
 
         if user_input is not None:
-            for key in user_input.get("datapoints", []):
-                custom.pop(key, None)
-            options = {**self.config_entry.options, CONF_CUSTOM_DATAPOINTS: custom}
+            chosen = {str(path) for path in user_input.get(DATAPOINTS_FIELD, [])}
+            selected = [item for item in items if str(item.get(DP_PATH)) in chosen]
+            details = await _async_describe(
+                self.hass,
+                dict(self.config_entry.data),
+                [int(item[DP_ID]) for item in selected],
+            )
+            for item in selected:
+                config = _build_datapoint(item, details.get(int(item[DP_ID]), {}))
+                datapoints[datapoint_key(config)] = config
+            options = {**self.config_entry.options, CONF_DATAPOINTS: datapoints}
             return self.async_create_entry(data=options)
 
-        choices = [
+        options_list = [
             SelectOptionDict(
-                value=key,
-                label=f"{config.get('name') or key} (id {key})",
+                value=str(item.get(DP_PATH)),
+                label=f"{item.get(DP_NAME)}  [{item.get(DP_ID)}]",
             )
-            for key, config in custom.items()
+            for item in items
         ]
         return self.async_show_form(
-            step_id=MENU_REMOVE_DATAPOINT,
+            step_id="pick",
             data_schema=vol.Schema(
                 {
-                    vol.Required("datapoints"): SelectSelector(
+                    vol.Optional(DATAPOINTS_FIELD): SelectSelector(
                         SelectSelectorConfig(
-                            options=choices,
+                            options=options_list,
                             multiple=True,
                             mode=SelectSelectorMode.LIST,
                         )
                     )
                 }
             ),
+        )
+
+    async def async_step_remove_datapoints(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Remove datapoints from the entry."""
+        datapoints = self._datapoints
+        if not datapoints:
+            return self.async_abort(reason="no_datapoints")
+
+        if user_input is not None:
+            for key in user_input.get(DATAPOINTS_FIELD, []):
+                datapoints.pop(key, None)
+            options = {**self.config_entry.options, CONF_DATAPOINTS: datapoints}
+            return self.async_create_entry(data=options)
+
+        options_list = [
+            SelectOptionDict(
+                value=key,
+                label=f"{config.get(DP_NAME) or key}  [{config.get(DP_ID)}]",
+            )
+            for key, config in datapoints.items()
+        ]
+        return self.async_show_form(
+            step_id=MENU_REMOVE_DATAPOINTS,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(DATAPOINTS_FIELD): SelectSelector(
+                        SelectSelectorConfig(
+                            options=options_list,
+                            multiple=True,
+                            mode=SelectSelectorMode.LIST,
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_edit_datapoint(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Select the datapoint to edit."""
+        datapoints = self._datapoints
+        if not datapoints:
+            return self.async_abort(reason="no_datapoints")
+
+        if user_input is not None:
+            self._edit_key = str(user_input[KEY_FIELD])
+            return await self.async_step_edit_datapoint_form()
+
+        options_list = [
+            SelectOptionDict(
+                value=key,
+                label=f"{config.get(DP_NAME) or key}  [{config.get(DP_ID)}]",
+            )
+            for key, config in datapoints.items()
+        ]
+        return self.async_show_form(
+            step_id=MENU_EDIT_DATAPOINT,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(KEY_FIELD): SelectSelector(
+                        SelectSelectorConfig(
+                            options=options_list, mode=SelectSelectorMode.DROPDOWN
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_edit_datapoint_form(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Edit the metadata of a datapoint."""
+        datapoints = self._datapoints
+        key = getattr(self, "_edit_key", "")
+        config = datapoints.get(key)
+        if config is None:
+            return self.async_abort(reason="no_datapoints")
+
+        if user_input is not None:
+            datapoints[key] = _apply_datapoint_form(config, user_input)
+            options = {**self.config_entry.options, CONF_DATAPOINTS: datapoints}
+            return self.async_create_entry(data=options)
+
+        return self.async_show_form(
+            step_id="edit_datapoint_form",
+            data_schema=_datapoint_schema(config),
+            description_placeholders={"path": str(config.get(DP_PATH) or "")},
         )

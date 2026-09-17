@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import timedelta
 from typing import Any
 
@@ -11,14 +12,34 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import OZW672ApiError, OZW672AuthError, OZW672Client, OZW672ConnectionError
+from .api import (
+    OZW672ApiError,
+    OZW672AuthError,
+    OZW672Client,
+    OZW672ConnectionError,
+    OZW672Error,
+)
 from .const import (
-    CONF_CUSTOM_DATAPOINTS,
-    CONF_DISABLED_DATAPOINTS,
+    CONF_DATAPOINTS,
+    CONF_DEVICE_ID,
     CONF_SCAN_INTERVAL,
-    DATAPOINTS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    DP_ADDRESS,
+    DP_DEVICE_CLASS,
+    DP_ID,
+    DP_MAX_VALUE,
+    DP_MIN_VALUE,
+    DP_NAME,
+    DP_OPTIONS,
+    DP_PATH,
+    DP_PLATFORM,
+    DP_STATE_CLASS,
+    DP_STEP,
+    DP_SUBKEY,
+    DP_UNIT,
+    DP_VALUE_TYPE,
+    DP_WRITE_ACCESS,
     PLATFORM_SENSOR,
     TYPE_NUMERIC,
     Datapoint,
@@ -27,59 +48,105 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def build_datapoints(entry: ConfigEntry) -> list[Datapoint]:
-    """Return the datapoints to poll: the built-in catalog plus user defined ones."""
-    disabled_ids: set[int] = set()
-    for raw_id in entry.options.get(CONF_DISABLED_DATAPOINTS, []) or []:
+def _to_float(value: Any) -> float | None:
+    """Convert a stored value into a float when possible."""
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_options(raw: Any) -> dict[int, str] | None:
+    """Convert a ``{"1": "Label"}`` mapping into ``{1: "Label"}``."""
+    if not isinstance(raw, dict):
+        return None
+    options: dict[int, str] = {}
+    for value, label in raw.items():
         try:
-            disabled_ids.add(int(raw_id))
+            options[int(value)] = str(label)
         except (TypeError, ValueError):
-            _LOGGER.warning("Ignoring disabled datapoint with invalid id %r", raw_id)
+            continue
+    return options or None
 
-    datapoints: list[Datapoint] = [
-        datapoint for datapoint in DATAPOINTS if datapoint.id not in disabled_ids
-    ]
-    known_ids = {datapoint.id for datapoint in datapoints}
 
-    custom: dict[str, Any] = entry.options.get(CONF_CUSTOM_DATAPOINTS, {}) or {}
-    for raw_id, config in custom.items():
+def build_datapoints(
+    entry: ConfigEntry, resolved: dict[str, int] | None = None
+) -> list[Datapoint]:
+    """Build the datapoints declared in the options of an entry.
+
+    ``resolved`` maps a datapoint path to the identifier currently used by the
+    OZW672 for that path. The identifier stored in the options is only a cache
+    and is used as a fallback when the menu tree could not be read.
+    """
+    resolved = resolved or {}
+    datapoints: list[Datapoint] = []
+
+    for key, config in (entry.options.get(CONF_DATAPOINTS) or {}).items():
+        if not isinstance(config, dict):
+            continue
+        path = config.get(DP_PATH) or None
+        stored_id = config.get(DP_ID)
         try:
-            datapoint_id = int(raw_id)
+            datapoint_id = int(stored_id)
         except (TypeError, ValueError):
-            _LOGGER.warning("Ignoring custom datapoint with invalid id %r", raw_id)
-            continue
-        if datapoint_id in known_ids:
-            continue
+            if path is None:
+                _LOGGER.warning("Ignoring datapoint %r without a usable id", key)
+                continue
+            datapoint_id = 0
 
-        options = config.get("options") or None
-        parsed_options: dict[int, str] | None = None
-        if options:
-            parsed_options = {}
-            for value, label in options.items():
-                try:
-                    parsed_options[int(value)] = str(label)
-                except (TypeError, ValueError):
-                    continue
+        current_id = resolved.get(path) if path else None
+        if current_id is not None:
+            datapoint_id = int(current_id)
 
         datapoints.append(
             Datapoint(
                 id=datapoint_id,
-                key=f"custom_{datapoint_id}",
-                name=config.get("name") or f"Datapoint {datapoint_id}",
-                platform=config.get("platform") or PLATFORM_SENSOR,
-                value_type=config.get("value_type") or TYPE_NUMERIC,
-                unit=config.get("unit") or None,
-                device_class=config.get("device_class") or None,
-                state_class=config.get("state_class") or None,
-                options=parsed_options,
-                min_value=config.get("min_value"),
-                max_value=config.get("max_value"),
-                step=config.get("step"),
-                custom=True,
+                name=config.get(DP_NAME) or path or f"Datapoint {datapoint_id}",
+                path=path,
+                address=config.get(DP_ADDRESS) or None,
+                subkey=config.get(DP_SUBKEY),
+                write_access=bool(config.get(DP_WRITE_ACCESS, False)),
+                platform=config.get(DP_PLATFORM) or PLATFORM_SENSOR,
+                value_type=config.get(DP_VALUE_TYPE) or TYPE_NUMERIC,
+                unit=config.get(DP_UNIT) or None,
+                device_class=config.get(DP_DEVICE_CLASS) or None,
+                state_class=config.get(DP_STATE_CLASS) or None,
+                options=_parse_options(config.get(DP_OPTIONS)),
+                min_value=_to_float(config.get(DP_MIN_VALUE)),
+                max_value=_to_float(config.get(DP_MAX_VALUE)),
+                step=_to_float(config.get(DP_STEP)),
             )
         )
 
     return datapoints
+
+
+async def async_resolve_ids(
+    client: OZW672Client,
+    device_id: int,
+    paths: list[str],
+) -> dict[str, int]:
+    """Resolve the current identifiers of the given menu tree paths."""
+    if not paths:
+        return {}
+    try:
+        found = await client.async_walk_datapoints(device_id, wanted_paths=paths)
+    except OZW672Error as err:
+        _LOGGER.warning(
+            "Could not read the OZW672 menu tree to check the datapoint "
+            "identifiers: %s",
+            err,
+        )
+        return {}
+
+    wanted = set(paths)
+    return {
+        str(item[DP_PATH]): int(item[DP_ID])
+        for item in found
+        if item.get(DP_PATH) in wanted and item.get(DP_ID) is not None
+    }
 
 
 class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -100,9 +167,53 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=scan_interval),
         )
         self.client = client
+        self.device_id: int | None = entry.data.get(CONF_DEVICE_ID)
         self.datapoints = build_datapoints(entry)
         self.data: dict[str, Any] = {}
         self._logged_failures: set[str] = set()
+
+    async def async_resolve_identifiers(self) -> None:
+        """Check that the saved datapoint identifiers still match the names.
+
+        The OZW672 generates the identifiers for the plant it is wired to, so
+        they change when the plant or the server parameters are refreshed.
+        Every setup (and therefore every reload) walks the menu tree again and
+        looks each configured datapoint up by its topic path.
+        """
+        paths = [datapoint.path for datapoint in self.datapoints if datapoint.path]
+        if not paths or self.device_id is None:
+            return
+
+        resolved = await async_resolve_ids(self.client, int(self.device_id), paths)
+        if not resolved:
+            return
+
+        updated: list[Datapoint] = []
+        for datapoint in self.datapoints:
+            current_id = resolved.get(datapoint.path) if datapoint.path else None
+            if current_id is None:
+                if datapoint.path:
+                    _LOGGER.warning(
+                        "Datapoint '%s' was not found in the OZW672 menu tree "
+                        "anymore; keeping the saved identifier %s. If the "
+                        "topics of the device changed, remove and add this "
+                        "datapoint again.",
+                        datapoint.path,
+                        datapoint.id,
+                    )
+                updated.append(datapoint)
+                continue
+            if current_id != datapoint.id:
+                _LOGGER.info(
+                    "Datapoint '%s' changed identifier from %s to %s",
+                    datapoint.path,
+                    datapoint.id,
+                    current_id,
+                )
+                datapoint = replace(datapoint, id=int(current_id))
+            updated.append(datapoint)
+
+        self.datapoints = updated
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch every known datapoint."""
@@ -131,25 +242,24 @@ class SiemensOZW672Coordinator(DataUpdateCoordinator[dict[str, Any]]):
                     _LOGGER.warning(
                         "Datapoint %s (%s) could not be read: %s",
                         datapoint.id,
-                        datapoint.name,
+                        datapoint.key,
                         err,
                     )
                 else:
                     _LOGGER.debug(
                         "Datapoint %s (%s) still not readable: %s",
                         datapoint.id,
-                        datapoint.name,
+                        datapoint.key,
                         err,
                     )
 
         if failures and failures == len(self.datapoints):
             _LOGGER.error(
                 "None of the %s configured OZW672 datapoints could be read. "
-                "Datapoint identifiers are generated for the plant, so the "
-                "built-in catalog only matches installations built around the "
-                "same controller: declare the identifiers of your own plant in "
-                "the integration options and disable the ones that do not "
-                "apply there.",
+                "The identifiers of a plant are generated by the OZW672 itself "
+                "and the topics configured for this entry do not seem to exist "
+                "anymore: edit the integration options to select the "
+                "datapoints of your installation again.",
                 failures,
             )
 

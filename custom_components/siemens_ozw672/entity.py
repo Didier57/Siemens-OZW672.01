@@ -38,6 +38,27 @@ def build_device_info(
     return device_info
 
 
+def _display_name(coordinator: SiemensOZW672Coordinator, datapoint: Datapoint) -> str:
+    """Return the entity name, disambiguated by its parent topic if needed.
+
+    Two datapoints of the same controller can share the same title (there are
+    for example two ``Message d'erreur`` datapoints), so the parent topic is
+    prepended when the title is not unique.
+    """
+    if not datapoint.path:
+        return datapoint.name
+    duplicates = any(
+        other.path != datapoint.path and other.name == datapoint.name
+        for other in coordinator.datapoints
+    )
+    if not duplicates:
+        return datapoint.name
+    parts = datapoint.path.split("/")
+    if len(parts) >= 2:
+        return f"{parts[-2]} {datapoint.name}"
+    return datapoint.name
+
+
 class SiemensOZW672Entity(CoordinatorEntity[SiemensOZW672Coordinator]):
     """Common behaviour for all OZW672 entities."""
 
@@ -53,7 +74,7 @@ class SiemensOZW672Entity(CoordinatorEntity[SiemensOZW672Coordinator]):
         super().__init__(coordinator)
         self.datapoint = datapoint
         self._attr_unique_id = f"{entry.entry_id}_{datapoint.key}"
-        self._attr_name = datapoint.name
+        self._attr_name = _display_name(coordinator, datapoint)
         self._attr_device_info = build_device_info(coordinator, entry)
 
     @property
