@@ -189,10 +189,6 @@ logger:
     custom_components.siemens_ozw672: debug
 ```
 
-## Crédits
-
-Inspiré de [vencakratky/API-OZW672--HomeAssistant](https://github.com/vencakratky/API-OZW672--HomeAssistant), qui documente l'API web de l'OZW672 et l'approche YAML/`rest_command` d'origine.
-
 ## Avertissement
 
 Non affilié à Siemens et non approuvé par Siemens. Le pilotage d'une installation de chauffage relève de votre responsabilité — à utiliser à vos propres risques.
