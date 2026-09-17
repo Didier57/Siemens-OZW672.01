@@ -68,6 +68,7 @@ class OZW672Client:
         self._verify_ssl = verify_ssl
         self._session_id: str | None = None
         self._lock = asyncio.Lock()
+        self._warned_payloads: set[int] = set()
 
         scheme = "https" if use_https else "http"
         authority = host
@@ -122,12 +123,53 @@ class OZW672Client:
                 _READ_DATAPOINT, {"SessionId": session_id, "Id": int(datapoint_id)}
             )
 
-        data = payload.get("Data") if isinstance(payload, dict) else None
-        if not isinstance(data, dict):
-            raise OZW672ApiError(
-                f"Unexpected response for datapoint {datapoint_id}: {payload!r}"
+        return self._extract_value(datapoint_id, payload)
+
+    def _extract_value(self, datapoint_id: int, payload: Any) -> Any:
+        """Pull the value out of a ``read_datapoint`` response.
+
+        The documented shape is ``{"Data": {"Value": <value>}}`` but the
+        firmware is not consistent about the capitalisation and about where the
+        value lives, so several shapes are accepted. An unrecognised payload is
+        reported once per datapoint instead of silently yielding ``None``.
+        """
+        _LOGGER.debug("Datapoint %s raw response: %r", datapoint_id, payload)
+
+        if isinstance(payload, dict):
+            error = payload.get("Error") or payload.get("error")
+            if error:
+                raise OZW672ApiError(
+                    f"Read of datapoint {datapoint_id} failed: {error}"
+                )
+
+            for key in ("Value", "value"):
+                if key in payload:
+                    return payload[key]
+
+            data = payload.get("Data", payload.get("data"))
+            if isinstance(data, dict):
+                for key in ("Value", "value"):
+                    if key in data:
+                        return data[key]
+                error = data.get("Error") or data.get("error")
+                if error:
+                    raise OZW672ApiError(
+                        f"Read of datapoint {datapoint_id} failed: {error}"
+                    )
+            elif isinstance(data, (int, float, str, bool)):
+                return data
+        elif isinstance(payload, (int, float, str, bool)):
+            return payload
+
+        if datapoint_id not in self._warned_payloads:
+            self._warned_payloads.add(datapoint_id)
+            _LOGGER.warning(
+                "Unexpected response for datapoint %s: %r. Please report this "
+                "payload at https://github.com/Didier57/Siemens-OZW672.01/issues",
+                datapoint_id,
+                payload,
             )
-        return data.get("Value")
+        return None
 
     async def async_write_datapoint(
         self,
