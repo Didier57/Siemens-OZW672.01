@@ -126,8 +126,19 @@ Go to **Settings → Devices & services → Siemens OZW672 → Configure**:
 - **Add a datapoint by its id** — paste the numeric identifier of any datapoint of the menutree. Its description is read on the device and decides the kind of entity created; if the identifier belongs to the menu tree, its topic is stored too so it is re-resolved on the next reloads.
 - **Remove datapoints** — tick the datapoints to drop from the entry.
 - **Edit a datapoint** — adjust the name, the entity type (sensor/number/select), the value type (`Numeric`/`Enumeration`), the enumeration options, the unit, the device class, the state class and the min/max/step of a number.
+- **Save the selection to a file** — the whole selection is shown as JSON; copy it and keep it in a file of your choice.
+- **Restore a selection from a file** — paste a file saved earlier to replace the selection in one go.
 
 Every options change reloads the entry, which re-resolves the ids from the topics.
+
+### Saving and restoring your selection
+
+Selecting the datapoints again after a clean installation of Home Assistant is tedious, so the selection can be exported:
+
+1. **Configure → Save the selection to a file**: the selection is displayed as an indented JSON document. Copy the whole text and save it as, for example, `siemens_ozw672_datapoints.json`.
+2. On a fresh install, add the integration again (host and credentials), then **Configure → Restore a selection from a file** and paste the content. The selection is replaced by the one of the file and takes effect on the spot.
+
+Connection details are deliberately **not** part of the file — no password is ever written in plain text — and the identifiers are resolved again from the topics when the entry reloads, so a file saved on one OZW672 can be restored on another one wired the same way. If a topic no longer exists on the new plant, it is reported in the log and the other datapoints keep working.
 
 ## Services
 
@@ -205,5 +216,6 @@ L'OZW672 ne possède pas de numérotation fixe : il construit son arborescence �
 - **Choix des points de données** : l'installation est parcourue **topic par topic**. Chaque écran liste les points de données d'un topic : cochez ceux qui vous intéressent, passez au topic suivant avec **Topic suivant**, revenez avec **Topic précédent**, et terminez quand vous voulez — tout ce qui est coché est conservé. Les points inscriptibles deviennent des entités `number`, les énumérations peuvent devenir des `select` en renseignant leur liste d'options, tout le reste devient des capteurs.
 - **Type d'entité déduit de la description de l'appareil** : pour chaque point de données, l'intégration lit sa description sur l'OZW672 (`datapoint_desc.json`), qui fournit le type, l'unité, la plage de valeurs autorisée, la résolution et, pour une énumération ou un bouton radio, la liste complète des valeurs avec les libellés du régulateur. Un point de données numérique inscriptible devient un `number` avec la plage et le pas annoncés par l'appareil, une énumération inscriptible devient un `select` pré-rempli, et tout le reste (mesures, états, messages, compteurs d'heures) reste un capteur en lecture seule. Tout reste modifiable dans *Modifier un point de données*.
 - **Ajout manuel par identifiant** : *Ajouter un datapoint par son id* permet de saisir directement l'identifiant numérique d'un point de données de l'arborescence ; sa description est lue sur l'appareil et détermine le type d'entité créé.
-- **Options** : *Réglages de scrutation* (intervalle de 10 à 3600 s), *Ajouter des points de données*, *Ajouter un datapoint par son id*, *Supprimer des points de données* et *Modifier un point de données* (nom, type, unité, classes, min/max/pas, options d'énumération).
+- **Options** : *Réglages de scrutation* (intervalle de 10 à 3600 s), *Ajouter des points de données*, *Ajouter un datapoint par son id*, *Supprimer des points de données*, *Modifier un point de données* (nom, type, unité, classes, min/max/pas, options d'énumération), *Enregistrer la sélection dans un fichier* et *Restaurer une sélection depuis un fichier*.
+- **Sauvegarde de la sélection** : *Enregistrer la sélection dans un fichier* affiche toute votre sélection au format JSON : copiez le texte et conservez-le dans un fichier. Après une réinstallation complète, recréez l'intégration (adresse et identifiants) puis *Restaurer une sélection depuis un fichier* en collant le contenu : vos points de données sont repris tels quels, sans avoir à les resélectionner. Les informations de connexion ne figurent **pas** dans le fichier (aucun mot de passe n'est écrit en clair) et les identifiants sont recalculés depuis les topics au rechargement, si bien qu'une sauvegarde faite sur un OZW672 peut être restaurée sur un autre câblé de la même façon.
 Crédits à [vencakratky](https://github.com/vencakratky/API-OZW672--HomeAssistant) pour la documentation de l'API.

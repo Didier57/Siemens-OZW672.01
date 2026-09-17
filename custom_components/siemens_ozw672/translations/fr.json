@@ -86,7 +86,9 @@
           "add_datapoints": "Ajouter des datapoints",
           "add_by_id": "Ajouter un datapoint par son id",
           "remove_datapoints": "Supprimer des datapoints",
-          "edit_datapoint": "Modifier un datapoint"
+          "edit_datapoint": "Modifier un datapoint",
+          "backup": "Enregistrer la sélection dans un fichier",
+          "restore": "Restaurer une sélection depuis un fichier"
         }
       },
       "add_by_id": {
@@ -151,11 +153,29 @@
           "max_value": "Valeur maximale",
           "step": "Pas"
         }
+      },
+      "backup": {
+        "title": "Enregistrer la sélection dans un fichier",
+        "description": "Les {count} datapoints de cette installation sont listés ci-dessous au format JSON. Copiez tout le texte et enregistrez-le dans un fichier, par exemple `siemens_ozw672_datapoints.json`. Conservez-le précieusement : le restaurer plus tard vous évite de resélectionner les datapoints, par exemple après une réinstallation complète de Home Assistant.\n\nLes informations de connexion ne sont pas incluses : le fichier peut donc être conservé à côté d'une sauvegarde de votre configuration.",
+        "data": {
+          "backup": "Sauvegarde"
+        }
+      },
+      "restore": {
+        "title": "Restaurer une sélection depuis un fichier",
+        "description": "Collez le contenu d'un fichier enregistré avec « Enregistrer la sélection dans un fichier ». Les datapoints déjà configurés ({count}) sont remplacés par ceux du fichier.\n\nLes identifiants sont réécrits à partir des topics au rechargement de l'entrée : une sélection enregistrée sur une autre installation est donc acceptée, les noms, types d'entité, unités, plages et options d'énumération venant tous du fichier.",
+        "data": {
+          "backup": "Sauvegarde"
+        }
       }
     },
     "error": {
       "cannot_connect": "L'arborescence de l'OZW672 n'a pas pu être lue.",
-      "unknown_datapoint": "Cet identifiant de datapoint n'a pas pu être lu sur l'OZW672. Vérifiez l'identifiant dans l'interface web de l'appareil."
+      "unknown_datapoint": "Cet identifiant de datapoint n'a pas pu être lu sur l'OZW672. Vérifiez l'identifiant dans l'interface web de l'appareil.",
+      "invalid_json": "Ceci n'est pas un document JSON valide.",
+      "invalid_format": "Ce fichier n'a pas été enregistré par l'intégration Siemens OZW672.",
+      "empty_backup": "Ce fichier ne contient aucun datapoint.",
+      "unsupported_version": "Cette sauvegarde a été écrite par une version plus récente de l'intégration."
     },
     "abort": {
       "no_datapoints": "Aucun datapoint n'est encore configuré pour cette installation."

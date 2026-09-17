@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -88,11 +89,17 @@ MENU_SETTINGS = "settings"
 MENU_FINISH = "finish"
 MENU_NEXT_TOPIC = "next_topic"
 MENU_PREVIOUS_TOPIC = "previous_topic"
+MENU_BACKUP = "backup"
+MENU_RESTORE = "restore"
 
 DATAPOINTS_FIELD = "datapoints"
 ID_FIELD = "datapoint_id"
 KEY_FIELD = "key"
 ENUM_OPTIONS_FIELD = "enum_options"
+BACKUP_FIELD = "backup"
+
+BACKUP_FORMAT = "siemens_ozw672.datapoints"
+BACKUP_VERSION = 1
 
 ROOT_TOPIC_LABEL = "(root)"
 
@@ -108,6 +115,70 @@ def datapoint_key(config: dict[str, Any]) -> str:
     if isinstance(segments, (list, tuple)) and segments:
         return "/".join(str(segment) for segment in segments)
     return str(config.get(DP_PATH) or f"id:{config.get(DP_ID)}")
+
+
+def _backup_payload(
+    entry_data: dict[str, Any], datapoints: dict[str, Any]
+) -> dict[str, Any]:
+    """Build the content of a datapoint backup file.
+
+    The connection details are deliberately left out: the file only carries what
+    identifies the plant and the selection of the user, so it can be restored
+    on another installation without leaking a password into a plain text file.
+    """
+    return {
+        "format": BACKUP_FORMAT,
+        "version": BACKUP_VERSION,
+        "device": {
+            CONF_DEVICE_ID: entry_data.get(CONF_DEVICE_ID),
+            CONF_DEVICE_NAME: entry_data.get(CONF_DEVICE_NAME),
+            CONF_GATEWAY_SERIAL: entry_data.get(CONF_GATEWAY_SERIAL),
+            CONF_GATEWAY_FIRMWARE: entry_data.get(CONF_GATEWAY_FIRMWARE),
+        },
+        "datapoints": datapoints,
+    }
+
+
+def _backup_text(entry_data: dict[str, Any], datapoints: dict[str, Any]) -> str:
+    """Serialise a datapoint backup as indented JSON."""
+    return json.dumps(
+        _backup_payload(entry_data, datapoints), indent=2, ensure_ascii=False
+    )
+
+
+def _parse_backup(raw: str) -> dict[str, Any]:
+    """Read a backup file and return its datapoints.
+
+    Raises ``ValueError`` when the content is not a Siemens OZW672 backup or
+    holds nothing usable, so the caller can report which error to show.
+    """
+    try:
+        payload = json.loads(str(raw))
+    except ValueError as err:
+        raise ValueError("invalid_json") from err
+    if not isinstance(payload, dict):
+        raise ValueError("invalid_json")
+    if payload.get("format") != BACKUP_FORMAT:
+        raise ValueError("invalid_format")
+    datapoints = payload.get("datapoints")
+    if not isinstance(datapoints, dict) or not datapoints:
+        raise ValueError("empty_backup")
+    if payload.get("version") != BACKUP_VERSION:
+        raise ValueError("unsupported_version")
+
+    restored: dict[str, Any] = {}
+    for key, config in datapoints.items():
+        if not isinstance(config, dict):
+            continue
+        datapoint_id = config.get(DP_ID)
+        try:
+            datapoint_id = int(datapoint_id)
+        except (TypeError, ValueError):
+            continue
+        restored[str(key)] = {**config, DP_ID: datapoint_id}
+    if not restored:
+        raise ValueError("empty_backup")
+    return restored
 
 
 def _normalise(user_input: dict[str, Any]) -> dict[str, Any]:
@@ -956,6 +1027,8 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
                 MENU_ADD_BY_ID,
                 MENU_REMOVE_DATAPOINTS,
                 MENU_EDIT_DATAPOINT,
+                MENU_BACKUP,
+                MENU_RESTORE,
             ],
         )
 
@@ -1174,4 +1247,65 @@ class SiemensOZW672OptionsFlow(OptionsFlow):
             step_id="edit_datapoint_form",
             data_schema=_datapoint_schema(config),
             description_placeholders={"path": str(config.get(DP_PATH) or "")},
+        )
+
+    async def async_step_backup(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Offer the datapoints as a JSON document to save."""
+        return self.async_show_form(
+            step_id=MENU_BACKUP,
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        BACKUP_FIELD,
+                        default=_backup_text(
+                            dict(self.config_entry.data), self._datapoints
+                        ),
+                    ): TextSelector(
+                        TextSelectorConfig(multiline=True, type=TextSelectorType.TEXT)
+                    )
+                }
+            ),
+            description_placeholders={"count": str(len(self._datapoints))},
+        )
+
+    async def async_step_restore(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Replace the datapoints with the content of a backup file.
+
+        Only the selection is restored: every datapoint keeps the identifier it
+        had when it was added, and the identifiers are looked up again from the
+        topics on the next reload, so a backup taken on one installation can be
+        restored on another one.
+        """
+        errors: dict[str, str] = {}
+        datapoints = self._datapoints
+
+        if user_input is not None:
+            raw = str(user_input.get(BACKUP_FIELD) or "").strip()
+            if not raw:
+                errors["base"] = "invalid_json"
+            else:
+                try:
+                    restored = _parse_backup(raw)
+                except ValueError as err:
+                    errors["base"] = str(err)
+                else:
+                    datapoints.clear()
+                    datapoints.update(restored)
+                    return self._save()
+
+        return self.async_show_form(
+            step_id=MENU_RESTORE,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(BACKUP_FIELD): TextSelector(
+                        TextSelectorConfig(multiline=True, type=TextSelectorType.TEXT)
+                    )
+                }
+            ),
+            errors=errors,
+            description_placeholders={"count": str(len(datapoints))},
         )

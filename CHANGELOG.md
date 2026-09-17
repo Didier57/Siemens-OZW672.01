@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-17
+
+### Added
+
+- **Save the selection to a file**: a new option shows the whole selection of
+  datapoints as an indented JSON document that can be copied and kept on disk,
+  for example to survive a clean installation of Home Assistant.
+- **Restore a selection from a file**: the matching option replaces the
+  selection of the entry with the content of a file saved earlier, in one go.
+  The connection details are deliberately kept out of the file, so no password
+  is ever written in plain text, and the identifiers are written down again
+  from the topics when the entry reloads, so a selection saved on one
+  installation can be restored on another one wired the same way.
+- The file is validated before it is applied: a document that is not JSON, not
+  a Siemens OZW672 backup, empty or written by a newer version is refused with
+  a message explaining which of those it is.
+
 ## [1.2.3] - 2026-09-17
 
 ### Fixed
@@ -168,6 +185,7 @@ setup to writing values back to the controller.
   `Texte de défaut`) are suffixed `#2`, `#3` … so the generated topic paths are
   unique and reproducible.
 
+[1.3.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.3.0
 [1.2.3]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.3
 [1.2.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.2
 [1.2.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.2.1

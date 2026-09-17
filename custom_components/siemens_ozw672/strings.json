@@ -85,10 +85,12 @@
           "settings": "Polling settings",
           "add_datapoints": "Add datapoints",
           "add_by_id": "Add a datapoint by its id",
-          "remove_datapoints": "Remove datapoints",
-          "edit_datapoint": "Edit a datapoint"
-        }
-      },
+        "remove_datapoints": "Remove datapoints",
+        "edit_datapoint": "Edit a datapoint",
+        "backup": "Save the selection to a file",
+        "restore": "Restore a selection from a file"
+      }
+    },
       "add_by_id": {
         "title": "Add a datapoint by its id",
         "description": "Enter the numeric identifier of a datapoint of the OZW672 menutree. Its description is read on the device: the type, the unit, the range and the enumeration values decide whether the datapoint becomes a read only sensor or an entity that can be changed from Home Assistant. The identifier can be changed by the controller when the plant is refreshed; if it belongs to the menu tree of the plant its topic is stored as well, so it is re-resolved automatically on every reload.",
@@ -136,27 +138,45 @@
           "key": "Datapoint"
         }
       },
-      "edit_datapoint_form": {
-        "title": "Edit a datapoint",
-        "description": "Datapoint: {path}",
-        "data": {
-          "name": "Name",
-          "platform": "Entity type",
-          "value_type": "Value type",
-          "unit": "Unit of measurement",
-          "device_class": "Device class",
-          "state_class": "State class",
-          "enum_options": "Enumeration options",
-          "min_value": "Minimum value",
-          "max_value": "Maximum value",
-          "step": "Step"
-        }
+    "edit_datapoint_form": {
+      "title": "Edit a datapoint",
+      "description": "Datapoint: {path}",
+      "data": {
+        "name": "Name",
+        "platform": "Entity type",
+        "value_type": "Value type",
+        "unit": "Unit of measurement",
+        "device_class": "Device class",
+        "state_class": "State class",
+        "enum_options": "Enumeration options",
+        "min_value": "Minimum value",
+        "max_value": "Maximum value",
+        "step": "Step"
       }
     },
-    "error": {
-      "cannot_connect": "The OZW672 menu tree could not be read.",
-      "unknown_datapoint": "This datapoint identifier could not be read on the OZW672. Check the identifier in the device web interface."
+    "backup": {
+      "title": "Save the selection to a file",
+      "description": "The {count} datapoints of this installation are listed below as JSON. Copy the whole text and save it in a file, for example `siemens_ozw672_datapoints.json`. Keep it somewhere safe: restoring it later saves you from selecting the datapoints again, for instance after a clean installation of Home Assistant.\n\nThe connection details are not included, so the file is safe to keep next to a backup of your configuration.",
+      "data": {
+        "backup": "Backup"
+      }
     },
+    "restore": {
+      "title": "Restore a selection from a file",
+      "description": "Paste the content of a file saved with 'Save the selection to a file'. The datapoints already configured ({count}) are replaced by the ones of the file.\n\nThe identifiers are written down again from the topics when the entry reloads, so a selection saved on another installation is accepted: the names, the entity types, the units, the ranges and the enumeration options all come from the file.",
+      "data": {
+        "backup": "Backup"
+      }
+    }
+  },
+  "error": {
+    "cannot_connect": "The OZW672 menu tree could not be read.",
+    "unknown_datapoint": "This datapoint identifier could not be read on the OZW672. Check the identifier in the device web interface.",
+    "invalid_json": "This is not a valid JSON document.",
+    "invalid_format": "This file was not saved by the Siemens OZW672 integration.",
+    "empty_backup": "This file does not contain any datapoint.",
+    "unsupported_version": "This backup was written by a newer version of the integration."
+  },
     "abort": {
       "no_datapoints": "No datapoint is configured for this installation yet."
     }
