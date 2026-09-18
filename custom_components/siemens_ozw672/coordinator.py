@@ -43,9 +43,11 @@ from .const import (
     DP_UNIT,
     DP_VALUE_TYPE,
     DP_WRITE_ACCESS,
+    NUMERIC_WRITE_TYPES,
     PLATFORM_NUMBER,
     PLATFORM_SELECT,
     PLATFORM_SENSOR,
+    SELECT_WRITE_TYPES,
     TYPE_ENUMERATION,
     TYPE_NUMERIC,
     Datapoint,
@@ -247,8 +249,13 @@ def describe_datapoint(write_access: bool, details: dict[str, Any]) -> dict[str,
 
     if write_access and options:
         platform = PLATFORM_SELECT
-        value_type = TYPE_ENUMERATION
-    elif write_access and value_type == TYPE_NUMERIC:
+        # The controller refuses a keyword it does not expect, so the type it
+        # announced is kept: a radio button is written as ``RadioButton`` and an
+        # enumeration as ``Enumeration``. Only datapoints that carry no type of
+        # their own are written as an enumeration.
+        if value_type not in SELECT_WRITE_TYPES:
+            value_type = TYPE_ENUMERATION
+    elif write_access and value_type in NUMERIC_WRITE_TYPES:
         platform = PLATFORM_NUMBER
     else:
         platform = PLATFORM_SENSOR
@@ -299,6 +306,11 @@ def _merge_device_fields(
     instead of being mistaken for user edits. Without that a datapoint would
     keep the entity kind it was created with forever, and a reload would never
     turn a sensor into a number or a select.
+
+    The value type is special: the controller refuses a write whose type is not
+    the one it announced (``datatype not supported``), so a stored type that no
+    longer matches the device is always replaced, even when it was written by a
+    previous version of the integration.
     """
     previous = config.get(DP_DEVICE)
     previous = previous if isinstance(previous, dict) else {}
@@ -306,9 +318,17 @@ def _merge_device_fields(
     merged = dict(config)
     changed: list[str] = []
 
+    announced_type = fresh.get(DP_VALUE_TYPE)
+    if announced_type and config.get(DP_VALUE_TYPE) != announced_type:
+        merged[DP_VALUE_TYPE] = announced_type
+        changed.append(DP_VALUE_TYPE)
+
     for field in DEVICE_FIELDS:
         value = fresh.get(field)
         if field != DP_NAME and value is None:
+            continue
+        if field == DP_VALUE_TYPE:
+            # Handled above: the type the controller announces always wins.
             continue
         if field in previous and config.get(field) != previous.get(field):
             continue

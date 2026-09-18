@@ -49,6 +49,8 @@ from .const import (
     SERVICE_WRITE_DATAPOINT,
     TYPE_ENUMERATION,
     TYPE_NUMERIC,
+    TYPE_RADIO_BUTTON,
+    TYPE_TIME_OF_DAY,
 )
 from .coordinator import SiemensOZW672Coordinator
 
@@ -112,7 +114,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 ),
                 vol.Required(ATTR_VALUE): vol.Any(str, int, float),
                 vol.Optional(ATTR_VALUE_TYPE, default=TYPE_NUMERIC): vol.In(
-                    [TYPE_NUMERIC, TYPE_ENUMERATION]
+                    [
+                        TYPE_NUMERIC,
+                        TYPE_ENUMERATION,
+                        TYPE_RADIO_BUTTON,
+                        TYPE_TIME_OF_DAY,
+                    ]
                 ),
             }
         ),

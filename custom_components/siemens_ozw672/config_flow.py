@@ -34,6 +34,7 @@ from .api import (
     OZW672Error,
 )
 from .const import (
+    API_VALUE_TYPE_TO_SELECTOR,
     CONF_DATAPOINTS,
     CONF_DEVICE_ID,
     CONF_DEVICE_NAME,
@@ -71,8 +72,11 @@ from .const import (
     PLATFORM_NUMBER,
     PLATFORM_SELECT,
     PLATFORM_SENSOR,
+    SELECT_WRITE_TYPES,
     SELECTOR_VALUE_TYPE_ENUMERATION,
     SELECTOR_VALUE_TYPE_NUMERIC,
+    SELECTOR_VALUE_TYPE_RADIO_BUTTON,
+    SELECTOR_VALUE_TYPE_TIME_OF_DAY,
     TYPE_ENUMERATION,
     TYPE_NUMERIC,
     VALUE_TYPE_SELECTOR_TO_API,
@@ -519,9 +523,9 @@ def _format_enum_options(options: Any) -> str:
 
 def _selector_value_type(value_type: str | None) -> str:
     """Return the selector value matching a device value type."""
-    if value_type == TYPE_ENUMERATION:
-        return SELECTOR_VALUE_TYPE_ENUMERATION
-    return SELECTOR_VALUE_TYPE_NUMERIC
+    return API_VALUE_TYPE_TO_SELECTOR.get(
+        str(value_type or ""), SELECTOR_VALUE_TYPE_NUMERIC
+    )
 
 
 def _datapoint_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
@@ -555,6 +559,8 @@ def _datapoint_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     options=[
                         SELECTOR_VALUE_TYPE_NUMERIC,
                         SELECTOR_VALUE_TYPE_ENUMERATION,
+                        SELECTOR_VALUE_TYPE_RADIO_BUTTON,
+                        SELECTOR_VALUE_TYPE_TIME_OF_DAY,
                     ],
                     mode=SelectSelectorMode.DROPDOWN,
                     translation_key="value_type",
@@ -589,24 +595,29 @@ def _datapoint_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
 def _apply_datapoint_form(
     config: dict[str, Any], user_input: dict[str, Any]
 ) -> dict[str, Any]:
-    """Merge an (edited) datapoint form into a stored configuration."""
+    """Merge an (edited) datapoint form into a stored configuration.
+
+    The value type is kept as the user chose it (a radio button is not turned
+    into an enumeration, the controller refuses a write whose type is not the
+    one it announced). A sensor that is given a list of options is promoted to
+    a select, and a select without a suitable type falls back to an
+    enumeration.
+    """
     enum_options = _parse_enum_options(user_input.get(ENUM_OPTIONS_FIELD))
     platform = user_input[DP_PLATFORM]
-    if enum_options and platform == PLATFORM_SENSOR:
-        platform = PLATFORM_SELECT
     value_type = VALUE_TYPE_SELECTOR_TO_API.get(
         str(user_input[DP_VALUE_TYPE]), TYPE_NUMERIC
     )
+    if platform == PLATFORM_SENSOR and enum_options:
+        platform = PLATFORM_SELECT
+    if platform == PLATFORM_SELECT and value_type not in SELECT_WRITE_TYPES:
+        value_type = TYPE_ENUMERATION
     updated = dict(config)
     updated.update(
         {
             DP_NAME: user_input[DP_NAME],
             DP_PLATFORM: platform,
-            DP_VALUE_TYPE: (
-                TYPE_ENUMERATION
-                if enum_options or value_type == TYPE_ENUMERATION
-                else value_type
-            ),
+            DP_VALUE_TYPE: value_type,
             DP_UNIT: user_input.get(DP_UNIT) or None,
             DP_DEVICE_CLASS: user_input.get(DP_DEVICE_CLASS) or None,
             DP_STATE_CLASS: user_input.get(DP_STATE_CLASS) or None,

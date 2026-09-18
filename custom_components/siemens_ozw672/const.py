@@ -44,10 +44,24 @@ TYPE_TIME_OF_DAY: Final = "TimeOfDay"
 
 SELECTOR_VALUE_TYPE_NUMERIC: Final = "numeric"
 SELECTOR_VALUE_TYPE_ENUMERATION: Final = "enumeration"
+SELECTOR_VALUE_TYPE_RADIO_BUTTON: Final = "radio_button"
+SELECTOR_VALUE_TYPE_TIME_OF_DAY: Final = "time_of_day"
 VALUE_TYPE_SELECTOR_TO_API: Final = {
     SELECTOR_VALUE_TYPE_NUMERIC: TYPE_NUMERIC,
     SELECTOR_VALUE_TYPE_ENUMERATION: TYPE_ENUMERATION,
+    SELECTOR_VALUE_TYPE_RADIO_BUTTON: TYPE_RADIO_BUTTON,
+    SELECTOR_VALUE_TYPE_TIME_OF_DAY: TYPE_TIME_OF_DAY,
 }
+API_VALUE_TYPE_TO_SELECTOR: Final = {
+    value: key for key, value in VALUE_TYPE_SELECTOR_TO_API.items()
+}
+
+# Value types that are written as a plain number by the OZW672 API, and the
+# ones that are written with their own ``Type`` keyword.
+NUMERIC_WRITE_TYPES: Final[frozenset[str]] = frozenset({TYPE_NUMERIC, TYPE_TIME_OF_DAY})
+SELECT_WRITE_TYPES: Final[frozenset[str]] = frozenset(
+    {TYPE_ENUMERATION, TYPE_RADIO_BUTTON}
+)
 
 SERVICE_WRITE_DATAPOINT: Final = "write_datapoint"
 ATTR_DATAPOINT_ID: Final = "datapoint_id"

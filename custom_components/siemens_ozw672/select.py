@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import PLATFORM_SELECT, TYPE_ENUMERATION, Datapoint
+from .const import PLATFORM_SELECT, Datapoint
 from .coordinator import SiemensOZW672Coordinator
 from .entity import SiemensOZW672Entity
 
@@ -60,11 +60,17 @@ class SiemensOZW672Select(SiemensOZW672Entity, SelectEntity):
         return self._options.get(key)
 
     async def async_select_option(self, option: str) -> None:
-        """Write the selected option to the OZW672."""
+        """Write the selected option to the OZW672.
+
+        The controller refuses a write whose type is not the one it announced
+        for the datapoint: a radio button must be written as ``RadioButton``,
+        an enumeration as ``Enumeration``. The stored type is therefore used
+        rather than always writing an enumeration.
+        """
         for key, label in self._options.items():
             if label == option:
                 await self.coordinator.client.async_write_datapoint(
-                    self.datapoint.id, key, TYPE_ENUMERATION
+                    self.datapoint.id, key, self.datapoint.value_type
                 )
                 self.coordinator.async_set_updated_data(
                     {**self.coordinator.data, self.datapoint.key: key}

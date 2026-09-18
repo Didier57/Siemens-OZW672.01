@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import PLATFORM_NUMBER, TYPE_NUMERIC, Datapoint
+from .const import PLATFORM_NUMBER, Datapoint
 from .coordinator import SiemensOZW672Coordinator
 from .entity import SiemensOZW672Entity
 
@@ -68,7 +68,7 @@ class SiemensOZW672Number(SiemensOZW672Entity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Write the new setpoint to the OZW672."""
         await self.coordinator.client.async_write_datapoint(
-            self.datapoint.id, value, TYPE_NUMERIC
+            self.datapoint.id, value, self.datapoint.value_type
         )
         self.coordinator.async_set_updated_data(
             {**self.coordinator.data, self.datapoint.key: value}

@@ -4,6 +4,24 @@ Toutes les évolutions notables de ce projet sont documentées dans ce fichier.
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et le versionnage suit [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-09-18
+
+### Corrigé
+
+- **L'écriture d'un `select` échouait avec `datatype not supported`** pour les
+  points de données de type bouton radio (par exemple `Circuit de chauffage 1`,
+  id 14511). Le régulateur refuse toute écriture dont le type n'est pas celui
+  qu'il a annoncé : un bouton radio doit être écrit avec `Type=RadioButton` et
+  non `Type=Enumeration`. Le type annoncé par l'appareil est désormais mémorisé
+  puis utilisé pour écrire (`Numeric`, `Enumeration`, `RadioButton`,
+  `TimeOfDay`), et le service `siemens_ozw672.write_datapoint` accepte les
+  quatre types.
+- Le type d'un point de données configuré par une version antérieure était
+  considéré comme modifié par l'utilisateur et n'était donc jamais corrigé :
+  il est maintenant réaligné sur le type annoncé par le régulateur à chaque
+  rechargement, même si l'instantané de l'appareil contient encore l'ancienne
+  valeur.
+
 ## [1.0.0] - 2026-09-17
 
 Première version : l'intégration couvre tout le cycle de vie d'un point de données,
@@ -79,4 +97,5 @@ de la sélection à l'écriture d'une consigne sur le régulateur.
   exemple `Texte de défaut`) sont suffixés `#2`, `#3` … afin que les chemins de
   topic générés soient uniques et reproductibles.
 
+[1.0.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.0

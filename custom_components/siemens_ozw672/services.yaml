@@ -28,7 +28,9 @@ write_datapoint:
         text:
     value_type:
       name: Value type
-      description: OZW672 datapoint type. Use Enumeration for switch-like datapoints.
+      description: >-
+        OZW672 datapoint type. Use Enumeration for enumerations and RadioButton
+        for two-state datapoints; a wrong type is refused by the controller.
       required: false
       default: Numeric
       selector:
@@ -36,3 +38,5 @@ write_datapoint:
           options:
             - Numeric
             - Enumeration
+            - RadioButton
+            - TimeOfDay

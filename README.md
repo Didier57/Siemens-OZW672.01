@@ -43,6 +43,7 @@ Le topic est mémorisé sous forme de **liste de segments** plutôt que de texte
 - **Lecture des points de données en capteurs** — températures, pressions, modulation, énergie, heures de fonctionnement, états et messages.
 - **Écriture des points de données en nombres** — les points de données numériques inscriptibles deviennent des entités `number` (unité, classe, plage et pas détectés sur l'appareil, et modifiables).
 - **Énumérations** — un point de données d'énumération peut devenir une entité `select` pré-remplie avec les libellés du régulateur.
+- **Écriture avec le type du régulateur** — chaque point de données est écrit avec le type qu'il annonce (`Numeric`, `Enumeration`, `RadioButton`, `TimeOfDay`), car le régulateur refuse tout autre type.
 - **Type d'entité déduit de l'appareil** — la description de chaque point de données (`type`, `unit`, `Min`/`Max`/`Resolution`, valeurs d'énumération) décide s'il devient un capteur en lecture seule, un nombre avec la plage et le pas du régulateur, ou un select.
 - **Ajout d'un point de données par son identifiant** — collez l'identifiant numérique d'un point de l'arborescence : l'intégration lit sa description sur l'appareil.
 - **Service générique** — `siemens_ozw672.write_datapoint` écrit dans n'importe quel point de données.
@@ -104,6 +105,8 @@ L'intégration demande à l'OZW672 la **description** de chaque point de donnée
 
 Rien n'est imposé : le type d'entité, l'unité, les classes, la plage et le pas restent modifiables dans *Configurer → Modifier un point de données*.
 
+Le régulateur refuse une écriture dont le type n'est pas celui qu'il a annoncé (`datatype not supported`). L'intégration écrit donc chaque point de données avec **son propre type** : un bouton radio avec `RadioButton`, une énumération avec `Enumeration`, une valeur numérique avec `Numeric`. Le type annoncé par l'appareil est réappliqué automatiquement à chaque rechargement, y compris pour les points de données créés par une version antérieure de l'intégration.
+
 ## Entités
 
 Les noms des entités suivent le nom du point de données ; lorsque deux points de données sélectionnés de la même installation portent le même nom, le topic parent est ajouté devant pour garder des noms lisibles. Les entités sont regroupées sous un seul appareil nommé d'après le régulateur sélectionné, avec le numéro de série et la version de firmware de la passerelle comme informations d'appareil.
@@ -148,7 +151,7 @@ Les informations de connexion ne font volontairement **pas** partie du fichier �
 | --- | --- | --- |
 | `datapoint_id` | oui | Identifiant du point de données dans l'arborescence de l'OZW672. |
 | `value` | oui | Valeur à écrire. |
-| `value_type` | non | `Numeric` (par défaut) ou `Enumeration`. |
+| `value_type` | non | `Numeric` (par défaut), `Enumeration`, `RadioButton` ou `TimeOfDay`. |
 | `entry_id` | non | Entrée de configuration cible, utile seulement avec plusieurs appareils OZW672. |
 
 ```yaml
@@ -176,6 +179,7 @@ data:
 | --- | --- |
 | `invalid_auth` | Vérifiez l'utilisateur et le mot de passe ; notez que l'OZW672 bloque les comptes après plusieurs échecs. |
 | `cannot_connect` | Vérifiez l'adresse IP, que le serveur web est activé, et le port (80/443). |
+| `datatype not supported` en écrivant un `select` | Le type mémorisé ne correspond pas à celui annoncé par l'appareil. Ouvrez **Configurer → Modifier un point de données** et choisissez le type du régulateur (`RadioButton` pour un bouton radio, `Enumeration` pour une énumération) ; un rechargement corrige le type automatiquement. |
 | Une entité reste `unknown` | Le point de données est configuré mais non câblé sur l'installation (`----`), ou il a été retiré de l'arborescence. Consultez le journal, puis supprimez-le ou modifiez-le dans les options. |
 | Toutes les entités restent `unknown` | Consultez le journal : le topic n'a peut-être plus pu être résolu. Resélectionnez les points de données dans **Configurer → Ajouter des points de données**. |
 | L'installation prend quelques secondes | L'intégration lit l'arborescence de l'installation, une requête par nœud de topic (environ 120 pour l'installation de référence). Cela n'arrive qu'à l'installation et au rechargement. |

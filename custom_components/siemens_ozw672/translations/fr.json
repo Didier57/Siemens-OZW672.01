@@ -223,7 +223,9 @@
     "value_type": {
       "options": {
         "numeric": "Numérique",
-        "enumeration": "Énumération"
+        "enumeration": "Énumération",
+        "radio_button": "Bouton radio",
+        "time_of_day": "Heure / compteur"
       }
     }
   }

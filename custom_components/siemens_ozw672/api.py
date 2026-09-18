@@ -563,7 +563,31 @@ class OZW672Client:
         value: Any,
         value_type: str = TYPE_NUMERIC,
     ) -> Any:
-        """Write a single datapoint value."""
+        """Write a single datapoint value.
+
+        The controller refuses a type it does not expect (``datatype not
+        supported``), so the type has to be the one it announced for the
+        datapoint: a radio button is not written as an enumeration, for
+        example. Numeric datapoints are written as a plain number and the
+        other types keep their own keyword.
+        """
+        payload = await self._async_write(datapoint_id, value, value_type)
+        error = _extract_error(payload)
+        if error is not None and value_type != TYPE_NUMERIC:
+            _LOGGER.debug(
+                "Write of datapoint %s as %s failed (%s), retrying as Numeric",
+                datapoint_id,
+                value_type,
+                error,
+            )
+            payload = await self._async_write(datapoint_id, value, TYPE_NUMERIC)
+            error = _extract_error(payload)
+        if error is not None:
+            raise OZW672ApiError(f"Write of datapoint {datapoint_id} failed: {error}")
+        return payload
+
+    async def _async_write(self, datapoint_id: int, value: Any, value_type: str) -> Any:
+        """Send a write request, re-authenticating once if needed."""
         session_id = await self.async_ensure_session()
         params: dict[str, Any] = {
             "SessionId": session_id,
@@ -572,17 +596,12 @@ class OZW672Client:
             "Value": value,
         }
         try:
-            payload = await self._async_request(_WRITE_DATAPOINT, params)
+            return await self._async_request(_WRITE_DATAPOINT, params)
         except OZW672AuthError:
             _LOGGER.debug("Session expired, re-authenticating")
             await self.async_login()
             params["SessionId"] = self._session_id
-            payload = await self._async_request(_WRITE_DATAPOINT, params)
-
-        error = _extract_error(payload)
-        if error is not None:
-            raise OZW672ApiError(f"Write of datapoint {datapoint_id} failed: {error}")
-        return payload
+            return await self._async_request(_WRITE_DATAPOINT, params)
 
     async def _async_login(self) -> None:
         """Perform the login handshake (lock must be held)."""
