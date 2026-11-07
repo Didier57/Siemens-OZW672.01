@@ -10,10 +10,10 @@ on:
 permissions: {}
 
 jobs:
-  validate-hacs:
+  validate-marketplace:
     runs-on: "ubuntu-latest"
     steps:
-      - name: HACS validation
+      - name: Marketplace validation
         uses: "hacs/action@main"
         with:
           category: "integration"

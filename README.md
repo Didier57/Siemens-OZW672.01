@@ -1,6 +1,5 @@
 # Siemens OZW672.01
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/Didier57/Siemens-OZW672.01)](https://github.com/Didier57/Siemens-OZW672.01/releases)
 [![License](https://img.shields.io/github/license/Didier57/Siemens-OZW672.01)](LICENSE)
 [![Validate](https://github.com/Didier57/Siemens-OZW672.01/actions/workflows/validate.yml/badge.svg)](https://github.com/Didier57/Siemens-OZW672.01/actions/workflows/validate.yml)
@@ -58,15 +57,15 @@ Le topic est mémorisé sous forme de **liste de segments** plutôt que de texte
 
 ## Installation
 
-### HACS (recommandé)
+### Marketplace (recommandé)
 
-[![Ouvrir votre instance Home Assistant et ajouter un dépôt au Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Didier57&repository=Siemens-OZW672.01&category=integration)
+1. Ouvrez **Paramètres → Marketplace**.
+2. En haut à droite, cliquez sur **Ajouter depuis un lien**.
+3. Collez `https://github.com/Didier57/Siemens-OZW672.01` (ou `Didier57/Siemens-OZW672.01`), puis validez. Si Home Assistant le demande, connectez votre compte GitHub.
+4. Ouvrez la fiche **Siemens OZW672** et cliquez sur **Installer**.
+5. Redémarrez Home Assistant si l'intégration ne se charge pas immédiatement.
 
-1. Ouvrez HACS → **Intégrations**.
-2. Cliquez sur les trois points (en haut à droite) → **Dépôts personnalisés**.
-3. Ajoutez `https://github.com/Didier57/Siemens-OZW672.01` avec la catégorie **Integration**.
-4. Recherchez **Siemens OZW672** dans HACS et installez-le.
-5. Redémarrez Home Assistant.
+> Le Marketplace est intégré à Home Assistant depuis la version 2026.11. Sur une version antérieure, utilisez l'installation manuelle ci-dessous.
 
 ### Manuellement
 

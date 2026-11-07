@@ -26,7 +26,7 @@ par le serveur web **OZW672**.
 
 ## Démarrage rapide
 
-1. Installez via HACS (catégorie *Integration*) et redémarrez Home Assistant.
+1. Installez via **Marketplace** (intégration *Siemens OZW672*) et redémarrez Home Assistant.
 2. **Paramètres → Appareils et services → Ajouter une intégration → Siemens OZW672**.
 3. Renseignez l'adresse IP et les identifiants du compte web de l'OZW672, choisissez
    l'appareil de l'installation, puis sélectionnez vos points de données par topic.

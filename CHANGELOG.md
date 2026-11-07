@@ -86,7 +86,7 @@ de la sélection à l'écriture d'une consigne sur le régulateur.
   données.
 - Renouvellement automatique de la session, prise en charge de la ré-authentification
   et traductions anglaise et française.
-- Workflows de validation HACS et hassfest, plus un workflow qui purge les anciennes
+- Workflows de validation Marketplace et hassfest, plus un workflow qui purge les anciennes
   exécutions GitHub Actions.
 
 ### Remarques
