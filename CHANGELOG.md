@@ -4,6 +4,15 @@ Toutes les évolutions notables de ce projet sont documentées dans ce fichier.
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 et le versionnage suit [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-11-07
+
+### Modifié
+
+- **Installation via le Marketplace.** La documentation ne mentionne plus HACS :
+  le Marketplace intégré à Home Assistant (2026.11) remplace le Home Assistant
+  Community Store. Les étapes d'installation, le badge du README et le fichier
+  `info.md` ont été mis à jour en conséquence.
+
 ## [1.0.1] - 2026-09-18
 
 ### Corrigé
@@ -97,5 +106,6 @@ de la sélection à l'écriture d'une consigne sur le régulateur.
   exemple `Texte de défaut`) sont suffixés `#2`, `#3` … afin que les chemins de
   topic générés soient uniques et reproductibles.
 
+[1.0.2]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Didier57/Siemens-OZW672.01/releases/tag/v1.0.0
